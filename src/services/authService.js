@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import pool from "../config/database.js";
 import generateToken from "../utils/generateToken.js";
+import apiError from "../utils/apiError.js";
 
 export const registerAdmin = async (data) => {
   const { firstName, lastName, email, password, department, position, phone } =
@@ -12,7 +13,7 @@ export const registerAdmin = async (data) => {
   );
 
   if (existingUser.rows.length > 0) {
-    throw new Error("Email already exists");
+    throw new ApiError(409, "Email already exists");
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -66,7 +67,7 @@ export const login = async (email, password) => {
   );
 
   if (result.rows.length === 0) {
-    throw new Error("Invalid email or password");
+    throw new ApiError(401, "Invalid email or password");
   }
 
   const user = result.rows[0];
@@ -74,11 +75,11 @@ export const login = async (email, password) => {
   const isMatch = await bcrypt.compare(password, user.password);
 
   if (!isMatch) {
-    throw new Error("Invalid email or password");
+    throw new ApiError(401, "Invalid email or password");
   }
 
   if (!user.isactive) {
-    throw new Error("Account has been deactivated");
+    throw new ApiError(403, "Account has been deactivated");
   }
 
   const token = generateToken({

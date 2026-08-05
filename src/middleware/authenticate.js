@@ -18,7 +18,7 @@ const authenticate = async (req, res, next) => {
 
     const result = await pool.query(
       `
-      SELECT id, email, role, isActive
+      SELECT id, email, role, isactive
       FROM users
       WHERE id = $1
       `,
