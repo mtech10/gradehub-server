@@ -1,25 +1,20 @@
-const validate = (schema) => {
-  return (req, res, next) => {
-    const { error, value } = schema.validate(req.body, {
-      abortEarly: false,
-      stripUnknown: true,
+import { validationResult } from "express-validator";
+
+const validate = (req, res, next) => {
+  const errors = validationResult(req);
+
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      message: "Validation failed",
+      errors: errors.array().map((error) => ({
+        field: error.path,
+        message: error.msg,
+      })),
     });
+  }
 
-    if (error) {
-      return res.status(400).json({
-        success: false,
-        message: "Validation failed",
-        errors: error.details.map((detail) => ({
-          field: detail.path.join("."),
-          message: detail.message,
-        })),
-      });
-    }
-
-    req.body = value;
-
-    next();
-  };
+  next();
 };
 
 export default validate;

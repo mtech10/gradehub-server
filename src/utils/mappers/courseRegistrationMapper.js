@@ -1,23 +1,5 @@
-const mapResult = (row) => ({
+const mapCourseRegistration = (row) => ({
   id: row.id,
-
-  score: Number(row.score),
-
-  grade: row.grade,
-
-  gradePoint: Number(row.gradepoint),
-
-  remark: row.remark,
-
-  isApproved: row.isapproved,
-
-  isActive: row.isactive,
-
-  registeredAt: row.registeredat,
-
-  createdAt: row.createdat,
-
-  updatedAt: row.updatedat,
 
   student: {
     id: row.student_id,
@@ -42,6 +24,14 @@ const mapResult = (row) => ({
     id: row.semester_id,
     name: row.semester_name,
   },
+
+  registeredAt: row.registeredat,
+
+  isActive: row.isactive,
+
+  createdAt: row.createdat,
+
+  updatedAt: row.updatedat,
 });
 
-export default mapResult;
+export default mapCourseRegistration;

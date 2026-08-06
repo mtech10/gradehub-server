@@ -1,12 +1,28 @@
 import * as levelService from "../services/levelService.js";
 import { response } from "../utils/response.js";
 
+// export const create = async (req, res, next) => {
+//   try {
+//     const level = await levelService.createLevel(req.body);
+
+//     return response(res, level, "Level created successfully", 201);
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
 export const create = async (req, res, next) => {
   try {
+    console.log("Reached create controller");
+    console.log(req.body);
+
     const level = await levelService.createLevel(req.body);
+
+    console.log("Service returned");
 
     return response(res, level, "Level created successfully", 201);
   } catch (error) {
+    console.log(error);
     next(error);
   }
 };
@@ -40,6 +56,7 @@ export const getOne = async (req, res, next) => {
 export const update = async (req, res, next) => {
   try {
     const level = await levelService.updateLevel(req.params.id, req.body);
+    console.log("Reached update controller");
 
     return response(res, level, "Level updated successfully");
   } catch (error) {

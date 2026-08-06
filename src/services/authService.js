@@ -8,20 +8,29 @@ export const registerAdmin = async (data) => {
     data;
 
   const existingUser = await pool.query(
-    "SELECT id FROM users WHERE email = $1",
+    `
+    SELECT id
+    FROM users
+    WHERE email = $1
+    `,
     [email],
   );
 
   if (existingUser.rows.length > 0) {
-    throw new ApiError(409, "Email already exists");
+    throw apiError(409, "Email already exists");
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
   const userResult = await pool.query(
     `
-    INSERT INTO users (email, password, role)
-    VALUES ($1, $2, 'admin')
+    INSERT INTO users
+    (
+      email,
+      password,
+      role
+    )
+    VALUES ($1,$2,'admin')
     RETURNING id, email, role
     `,
     [email, hashedPassword],
@@ -33,9 +42,9 @@ export const registerAdmin = async (data) => {
     `
     INSERT INTO admins
     (
-      userId,
-      firstName,
-      lastName,
+      userid,
+      firstname,
+      lastname,
       department,
       position,
       phone
@@ -67,7 +76,7 @@ export const login = async (email, password) => {
   );
 
   if (result.rows.length === 0) {
-    throw new ApiError(401, "Invalid email or password");
+    throw apiError(401, "Invalid email or password");
   }
 
   const user = result.rows[0];
@@ -75,11 +84,11 @@ export const login = async (email, password) => {
   const isMatch = await bcrypt.compare(password, user.password);
 
   if (!isMatch) {
-    throw new ApiError(401, "Invalid email or password");
+    throw apiError(401, "Invalid email or password");
   }
 
   if (!user.isactive) {
-    throw new ApiError(403, "Account has been deactivated");
+    throw apiError(403, "Account has been deactivated");
   }
 
   const token = generateToken({

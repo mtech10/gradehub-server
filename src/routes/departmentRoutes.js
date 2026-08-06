@@ -8,17 +8,19 @@ import validate from "../middleware/validate.js";
 import validateUUID from "../middleware/validateUUID.js";
 
 import {
-  createDepartmentSchema,
-  updateDepartmentSchema,
+  createDepartmentValidator,
+  updateDepartmentValidator,
 } from "../validators/departmentValidator.js";
 
 const router = express.Router();
 
+router.use(authenticate);
+router.use(authorize("admin"));
+
 router.post(
   "/",
-  authenticate,
-  authorize("admin"),
-  validate(createDepartmentSchema),
+  createDepartmentValidator,
+  validate,
   departmentController.createDepartment,
 );
 
@@ -42,7 +44,8 @@ router.put(
   authenticate,
   authorize("admin"),
   validateUUID(),
-  validate(updateDepartmentSchema),
+  updateDepartmentValidator,
+  validate,
   departmentController.updateDepartment,
 );
 

@@ -23,7 +23,7 @@ router.get("/:id", levelController.getOne);
 router.post(
   "/",
   authorize("admin"),
-  createLevelValidator,
+  ...createLevelValidator,
   validate,
   levelController.create,
 );
@@ -31,7 +31,7 @@ router.post(
 router.put(
   "/:id",
   authorize("admin"),
-  updateLevelValidator,
+  ...updateLevelValidator,
   validate,
   levelController.update,
 );

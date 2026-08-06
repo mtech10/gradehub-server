@@ -1,30 +1,32 @@
 import pool from "../config/database.js";
-import apiError from "../utils/apiError.js";
+
 import { buildPagination } from "../utils/pagination.js";
+
 import { mapDepartment } from "../utils/mappers/departmentMapper.js";
-import entityExists from "../utils/entityExists.js";
+
+import ensureActive from "../utils/ensureActive.js";
+import checkDuplicate from "../utils/checkDuplicate.js";
+
 import softDelete from "../utils/softDelete.js";
 import restoreEntity from "../utils/restoreEntity.js";
 
 export const createDepartment = async (data) => {
   const { name, code, facultyId, hod, description } = data;
 
-  const existing = await pool.query(
-    `
-    SELECT id
-    FROM departments
-    WHERE name = $1
-       OR code = $2
-    `,
-    [name, code],
-  );
+  await checkDuplicate({
+    table: "departments",
+    conditions: {
+      code,
+    },
+    excludeId: id,
+    message: "Department already exists",
+  });
 
-  if (existing.rows.length > 0) {
-    throw apiError(409, "Department already exists");
-  }
-
-  await entityExists("faculties", facultyId, "Faculty not found");
-
+  await ensureActive({
+    table: "faculties",
+    id: facultyId,
+    message: "Faculty not found",
+  });
   const result = await pool.query(
     `
     INSERT INTO departments
@@ -41,7 +43,7 @@ export const createDepartment = async (data) => {
     [name, code, facultyId, hod, description],
   );
 
-  return await getDepartmentById(result.rows[0].id);
+  return getDepartmentById(result.rows[0].id);
 };
 
 export const getDepartments = async (filters) => {
@@ -94,6 +96,7 @@ export const getDepartments = async (filters) => {
   `;
 
   const countResult = await pool.query(countQuery, values);
+
   const total = Number(countResult.rows[0].total);
 
   const allowedSortFields = ["name", "code", "createdat", "updatedat"];
@@ -142,6 +145,19 @@ export const getDepartments = async (filters) => {
 };
 
 export const getDepartmentById = async (id) => {
+  const exists = await pool.query(
+    `
+    SELECT id
+    FROM departments
+    WHERE id = $1
+  `,
+    [id],
+  );
+
+  if (exists.rows.length === 0) {
+    throw apiError(404, "Department not found");
+  }
+
   const result = await pool.query(
     `
     SELECT
@@ -168,19 +184,32 @@ export const getDepartmentById = async (id) => {
     [id],
   );
 
-  if (result.rows.length === 0) {
-    throw apiError(404, "Department not found");
-  }
-
   return mapDepartment(result.rows[0]);
 };
 
 export const updateDepartment = async (id, data) => {
   const { name, code, facultyId, hod, description } = data;
 
-  await entityExists("faculties", facultyId, "Faculty not found");
+  await ensureActive({
+    table: "departments",
+    id,
+    message: "Department not found",
+  });
+  await ensureActive({
+    table: "faculties",
+    id: facultyId,
+    message: "Faculty not found",
+  });
+  await checkDuplicate({
+    table: "departments",
+    conditions: {
+      code,
+    },
+    excludeId: id,
+    message: "Department already exists",
+  });
 
-  const result = await pool.query(
+  await pool.query(
     `
     UPDATE departments
     SET
@@ -191,26 +220,21 @@ export const updateDepartment = async (id, data) => {
       description = $5,
       updatedat = CURRENT_TIMESTAMP
     WHERE id = $6
-    RETURNING id
     `,
     [name, code, facultyId, hod, description, id],
   );
 
-  if (result.rows.length === 0) {
-    throw apiError(404, "Department not found");
-  }
-
-  return await getDepartmentById(id);
+  return getDepartmentById(id);
 };
 
 export const deactivateDepartment = async (id) => {
   await softDelete("departments", id, "Department not found");
 
-  return await getDepartmentById(id);
+  return getDepartmentById(id);
 };
 
 export const restoreDepartment = async (id) => {
   await restoreEntity("departments", id, "Department not found");
 
-  return await getDepartmentById(id);
+  return getDepartmentById(id);
 };

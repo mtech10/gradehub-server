@@ -8,42 +8,47 @@ import validate from "../middleware/validate.js";
 import validateUUID from "../middleware/validateUUID.js";
 
 import {
-  createFacultySchema,
-  updateFacultySchema,
+  createFacultyValidator,
+  updateFacultyValidator,
 } from "../validators/facultyValidator.js";
 
 const router = express.Router();
 
+// Protect all routes
 router.use(authenticate);
 router.use(authorize("admin"));
 
+// Create Faculty
 router.post(
   "/",
-  validate(createFacultySchema),
+  createFacultyValidator,
+  validate,
   facultyController.createFaculty,
 );
 
+// Get All Faculties
 router.get("/", facultyController.getFaculties);
 
-router.get("/:id", validateUUID("id"), facultyController.getFacultyById);
+// Get Faculty By ID
+router.get("/:id", validateUUID(), facultyController.getFacultyById);
 
+// Update Faculty
 router.put(
   "/:id",
-  validateUUID("id"),
-  validate(updateFacultySchema),
+  validateUUID(),
+  updateFacultyValidator,
+  validate,
   facultyController.updateFaculty,
 );
 
+// Deactivate Faculty
 router.patch(
   "/:id/deactivate",
-  validateUUID("id"),
+  validateUUID(),
   facultyController.deactivateFaculty,
 );
 
-router.patch(
-  "/:id/restore",
-  validateUUID("id"),
-  facultyController.restoreFaculty,
-);
+// Restore Faculty
+router.patch("/:id/restore", validateUUID(), facultyController.restoreFaculty);
 
 export default router;

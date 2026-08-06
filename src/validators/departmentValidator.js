@@ -1,25 +1,47 @@
-import Joi from "joi";
+import { body } from "express-validator";
 
-export const createDepartmentSchema = Joi.object({
-  name: Joi.string().min(3).max(150).required(),
+export const createDepartmentValidator = [
+  body("name")
+    .trim()
+    .notEmpty()
+    .withMessage("Department name is required")
+    .isLength({ min: 3, max: 150 })
+    .withMessage("Department name must be between 3 and 150 characters"),
 
-  code: Joi.string().max(20).required(),
+  body("code")
+    .trim()
+    .notEmpty()
+    .withMessage("Department code is required")
+    .isLength({ max: 20 })
+    .withMessage("Department code must not exceed 20 characters"),
 
-  facultyId: Joi.string().guid({ version: "uuidv4" }).required(),
+  body("facultyId")
+    .notEmpty()
+    .withMessage("Faculty is required")
+    .isUUID()
+    .withMessage("Invalid Faculty ID"),
 
-  hod: Joi.string().allow("", null),
+  body("hod").optional().trim(),
 
-  description: Joi.string().allow("", null),
-});
+  body("description").optional().trim(),
+];
 
-export const updateDepartmentSchema = Joi.object({
-  name: Joi.string().min(3).max(150),
+export const updateDepartmentValidator = [
+  body("name")
+    .optional()
+    .trim()
+    .isLength({ min: 3, max: 150 })
+    .withMessage("Department name must be between 3 and 150 characters"),
 
-  code: Joi.string().max(20),
+  body("code")
+    .optional()
+    .trim()
+    .isLength({ max: 20 })
+    .withMessage("Department code must not exceed 20 characters"),
 
-  facultyId: Joi.string().guid({ version: "uuidv4" }),
+  body("facultyId").optional().isUUID().withMessage("Invalid Faculty ID"),
 
-  hod: Joi.string().allow("", null),
+  body("hod").optional().trim(),
 
-  description: Joi.string().allow("", null),
-});
+  body("description").optional().trim(),
+];

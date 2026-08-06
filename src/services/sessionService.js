@@ -2,25 +2,21 @@ import pool from "../config/database.js";
 import apiError from "../utils/apiError.js";
 import { buildPagination } from "../utils/pagination.js";
 import { mapSession } from "../utils/mappers/sessionMapper.js";
-import entityExists from "../utils/entityExists.js";
+
+import checkDuplicate from "../utils/checkDuplicate.js";
 import softDelete from "../utils/softDelete.js";
 import restoreEntity from "../utils/restoreEntity.js";
 
 export const createSession = async (data) => {
   const { name, startdate, enddate } = data;
 
-  const existing = await pool.query(
-    `
-    SELECT id
-    FROM sessions
-    WHERE name = $1
-    `,
-    [name],
-  );
-
-  if (existing.rows.length > 0) {
-    throw apiError(409, "Session already exists");
-  }
+  await checkDuplicate({
+    table: "sessions",
+    conditions: {
+      name,
+    },
+    message: "Session already exists",
+  });
 
   const result = await pool.query(
     `
@@ -136,6 +132,15 @@ export const updateSession = async (id, data) => {
     ...data,
   };
 
+  await checkDuplicate({
+    table: "sessions",
+    conditions: {
+      name: updated.name,
+    },
+    excludeId: id,
+    message: "Session already exists",
+  });
+
   const result = await pool.query(
     `
     UPDATE sessions
@@ -154,13 +159,15 @@ export const updateSession = async (id, data) => {
 };
 
 export const setCurrentSession = async (id) => {
+  const session = await getSessionById(id);
+
+  if (!session.isActive) {
+    throw apiError(404, "Session not found");
+  }
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
-
-    // Verify the session exists
-    await entityExists("sessions", id, "Session not found", false);
 
     await client.query(`
       UPDATE sessions

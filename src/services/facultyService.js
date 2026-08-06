@@ -1,25 +1,23 @@
 import pool from "../config/database.js";
+
+import checkDuplicate from "../utils/checkDuplicate.js";
 import apiError from "../utils/apiError.js";
+
 import { mapFaculty } from "../utils/mappers/facultyMapper.js";
+
 import softDelete from "../utils/softDelete.js";
 import restoreEntity from "../utils/restoreEntity.js";
 
 export const createFaculty = async (data) => {
   const { name, code, dean, description } = data;
 
-  const existing = await pool.query(
-    `
-    SELECT id
-    FROM faculties
-    WHERE code = $1
-       OR name = $2
-    `,
-    [code, name],
-  );
-
-  if (existing.rows.length > 0) {
-    throw apiError(409, "Faculty already exists");
-  }
+  await checkDuplicate({
+    table: "faculties",
+    conditions: {
+      code,
+    },
+    message: "Faculty already exists",
+  });
 
   const result = await pool.query(
     `
@@ -51,6 +49,18 @@ export const getFaculties = async () => {
 };
 
 export const getFacultyById = async (id) => {
+  const exists = await pool.query(
+    `
+    SELECT id
+    FROM faculties
+    WHERE id = $1
+  `,
+    [id],
+  );
+
+  if (exists.rows.length === 0) {
+    throw apiError(404, "Faculty not found");
+  }
   const result = await pool.query(
     `
     SELECT *
@@ -60,18 +70,50 @@ export const getFacultyById = async (id) => {
     [id],
   );
 
-  if (result.rows.length === 0) {
-    throw apiError(404, "Faculty not found");
-  }
-
   return mapFaculty(result.rows[0]);
 };
 
 export const updateFaculty = async (id, data) => {
-  const faculty = await getFacultyById(id);
+  const exists = await pool.query(
+    `
+    SELECT id
+    FROM faculties
+    WHERE id = $1
+  `,
+    [id],
+  );
+
+  if (exists.rows.length === 0) {
+    throw apiError(404, "Faculty not found");
+  }
+  const { name, code, dean, description } = data;
+
+  if (code) {
+    await checkDuplicate({
+      table: "faculties",
+      conditions: {
+        code,
+      },
+      excludeId: id,
+      message: "Faculty already exists",
+    });
+  }
+
+  if (name) {
+    await checkDuplicate({
+      table: "faculties",
+      conditions: {
+        name,
+      },
+      excludeId: id,
+      message: "Faculty name already exists",
+    });
+  }
+
+  const current = await getFacultyById(id);
 
   const updated = {
-    ...faculty,
+    ...current,
     ...data,
   };
 

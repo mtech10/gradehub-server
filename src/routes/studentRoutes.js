@@ -1,6 +1,6 @@
 import express from "express";
 
-import * as courseController from "../controllers/courseController.js";
+import * as studentController from "../controllers/studentController.js";
 
 import authenticate from "../middleware/authenticate.js";
 import authorize from "../middleware/authorize.js";
@@ -8,9 +8,9 @@ import validate from "../middleware/validate.js";
 import validateUUID from "../middleware/validateUUID.js";
 
 import {
-  createCourseValidator,
-  updateCourseValidator,
-} from "../validators/courseValidator.js";
+  createStudentValidator,
+  updateStudentValidator,
+} from "../validators/studentValidator.js";
 
 const router = express.Router();
 
@@ -19,29 +19,29 @@ router.use(authorize("admin"));
 
 router.post(
   "/",
-  createCourseValidator,
+  createStudentValidator,
   validate,
-  courseController.createCourse,
+  studentController.createStudent,
 );
 
-router.get("/", courseController.getCourses);
+router.get("/", studentController.getStudents);
 
-router.get("/:id", validateUUID(), courseController.getCourseById);
+router.get("/:id", validateUUID(), studentController.getStudentById);
 
 router.put(
   "/:id",
   validateUUID(),
-  updateCourseValidator,
+  updateStudentValidator,
   validate,
-  courseController.updateCourse,
+  studentController.updateStudent,
 );
 
 router.patch(
   "/:id/deactivate",
   validateUUID(),
-  courseController.deactivateCourse,
+  studentController.deactivateStudent,
 );
 
-router.patch("/:id/restore", validateUUID(), courseController.restoreCourse);
+router.patch("/:id/restore", validateUUID(), studentController.restoreStudent);
 
 export default router;
