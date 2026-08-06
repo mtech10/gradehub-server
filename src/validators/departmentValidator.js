@@ -5,7 +5,7 @@ export const createDepartmentSchema = Joi.object({
 
   code: Joi.string().max(20).required(),
 
-  faculty: Joi.string().allow("", null),
+  facultyId: Joi.string().guid({ version: "uuidv4" }).required(),
 
   hod: Joi.string().allow("", null),
 
@@ -17,7 +17,7 @@ export const updateDepartmentSchema = Joi.object({
 
   code: Joi.string().max(20),
 
-  faculty: Joi.string().allow("", null),
+  facultyId: Joi.string().guid({ version: "uuidv4" }),
 
   hod: Joi.string().allow("", null),
 

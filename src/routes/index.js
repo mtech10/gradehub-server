@@ -2,6 +2,10 @@ import express from "express";
 import { healthCheck } from "../controllers/healthController.js";
 import authRoutes from "./authRoutes.js";
 import departmentRoutes from "./departmentRoutes.js";
+import facultyRoutes from "./facultyRoutes.js";
+import sessionRoutes from "./sessionRoutes.js";
+import semesterRoutes from "./semesterRoutes.js";
+import levelRoutes from "./levelRoutes.js";
 
 const router = express.Router();
 
@@ -20,5 +24,9 @@ router.get("/health", healthCheck);
 router.use("/auth", authRoutes);
 
 router.use("/departments", departmentRoutes);
+router.use("/faculties", facultyRoutes);
+router.use("/sessions", sessionRoutes);
+router.use("/semesters", semesterRoutes);
+router.use("/levels", levelRoutes);
 
 export default router;

@@ -1,7 +1,13 @@
 import pool from "../config/database.js";
+import apiError from "../utils/apiError.js";
+import { buildPagination } from "../utils/pagination.js";
+import { mapDepartment } from "../utils/mappers/departmentMapper.js";
+import entityExists from "../utils/entityExists.js";
+import softDelete from "../utils/softDelete.js";
+import restoreEntity from "../utils/restoreEntity.js";
 
 export const createDepartment = async (data) => {
-  const { name, code, faculty, hod, description } = data;
+  const { name, code, facultyId, hod, description } = data;
 
   const existing = await pool.query(
     `
@@ -14,8 +20,10 @@ export const createDepartment = async (data) => {
   );
 
   if (existing.rows.length > 0) {
-    throw new Error("Department already exists");
+    throw apiError(409, "Department already exists");
   }
+
+  await entityExists("faculties", facultyId, "Faculty not found");
 
   const result = await pool.query(
     `
@@ -23,17 +31,17 @@ export const createDepartment = async (data) => {
     (
       name,
       code,
-      faculty,
+      facultyid,
       hod,
       description
     )
     VALUES ($1,$2,$3,$4,$5)
-    RETURNING *
+    RETURNING id
     `,
-    [name, code, faculty, hod, description],
+    [name, code, facultyId, hod, description],
   );
 
-  return result.rows[0];
+  return await getDepartmentById(result.rows[0].id);
 };
 
 export const getDepartments = async (filters) => {
@@ -52,53 +60,75 @@ export const getDepartments = async (filters) => {
   const values = [];
   let index = 1;
 
-  // Status filter
   if (status === "active") {
-    whereClause += ` WHERE "isactive" = true`;
+    whereClause += ` WHERE d.isactive = true`;
   } else if (status === "inactive") {
-    whereClause += ` WHERE "isactive" = false`;
+    whereClause += ` WHERE d.isactive = false`;
   }
 
-  // Search filter
   if (search) {
     const searchClause = `
       (
-        name ILIKE $${index}
-        OR code ILIKE $${index}
-        OR faculty ILIKE $${index}
-        OR hod ILIKE $${index}
+        d.name ILIKE $${index}
+        OR d.code ILIKE $${index}
+        OR d.hod ILIKE $${index}
+        OR f.name ILIKE $${index}
       )
     `;
 
     values.push(`%${search}%`);
 
-    if (whereClause) {
-      whereClause += ` AND ${searchClause}`;
-    } else {
-      whereClause += ` WHERE ${searchClause}`;
-    }
+    whereClause += whereClause
+      ? ` AND ${searchClause}`
+      : ` WHERE ${searchClause}`;
 
     index++;
   }
 
   const countQuery = `
     SELECT COUNT(*) AS total
-    FROM departments
+    FROM departments d
+    JOIN faculties f
+      ON d.facultyid = f.id
     ${whereClause}
   `;
 
   const countResult = await pool.query(countQuery, values);
-
   const total = Number(countResult.rows[0].total);
+
+  const allowedSortFields = ["name", "code", "createdat", "updatedat"];
+
+  const sortBy = allowedSortFields.includes(sort) ? sort : "name";
+
+  const sortOrder = order.toLowerCase() === "desc" ? "DESC" : "ASC";
 
   values.push(limit);
   values.push(offset);
 
   const query = `
-    SELECT *
-    FROM departments
+    SELECT
+      d.id,
+      d.name,
+      d.code,
+      d.hod,
+      d.description,
+      d.isactive,
+      d.createdat,
+      d.updatedat,
+
+      f.id   AS faculty_id,
+      f.name AS faculty_name,
+      f.code AS faculty_code
+
+    FROM departments d
+
+    JOIN faculties f
+      ON d.facultyid = f.id
+
     ${whereClause}
-    ORDER BY "${sort}" ${order.toUpperCase()}
+
+    ORDER BY d.${sortBy} ${sortOrder}
+
     LIMIT $${index}
     OFFSET $${index + 1}
   `;
@@ -106,35 +136,49 @@ export const getDepartments = async (filters) => {
   const result = await pool.query(query, values);
 
   return {
-    departments: result.rows,
-    pagination: {
-      page: Number(page),
-      limit: Number(limit),
-      total,
-      totalPages: Math.ceil(total / limit),
-    },
+    departments: result.rows.map(mapDepartment),
+    pagination: buildPagination(page, limit, total),
   };
 };
 
 export const getDepartmentById = async (id) => {
   const result = await pool.query(
     `
-    SELECT *
-    FROM departments
-    WHERE id = $1
+    SELECT
+      d.id,
+      d.name,
+      d.code,
+      d.hod,
+      d.description,
+      d.isactive,
+      d.createdat,
+      d.updatedat,
+
+      f.id   AS faculty_id,
+      f.name AS faculty_name,
+      f.code AS faculty_code
+
+    FROM departments d
+
+    JOIN faculties f
+      ON d.facultyid = f.id
+
+    WHERE d.id = $1
     `,
     [id],
   );
 
   if (result.rows.length === 0) {
-    throw new Error("Department not found");
+    throw apiError(404, "Department not found");
   }
 
-  return result.rows[0];
+  return mapDepartment(result.rows[0]);
 };
 
 export const updateDepartment = async (id, data) => {
-  const { name, code, faculty, hod, description } = data;
+  const { name, code, facultyId, hod, description } = data;
+
+  await entityExists("faculties", facultyId, "Faculty not found");
 
   const result = await pool.query(
     `
@@ -142,58 +186,31 @@ export const updateDepartment = async (id, data) => {
     SET
       name = $1,
       code = $2,
-      faculty = $3,
+      facultyid = $3,
       hod = $4,
       description = $5,
       updatedat = CURRENT_TIMESTAMP
     WHERE id = $6
-    RETURNING *
+    RETURNING id
     `,
-    [name, code, faculty, hod, description, id],
+    [name, code, facultyId, hod, description, id],
   );
 
   if (result.rows.length === 0) {
-    throw new Error("Department not found");
+    throw apiError(404, "Department not found");
   }
 
-  return result.rows[0];
+  return await getDepartmentById(id);
 };
+
 export const deactivateDepartment = async (id) => {
-  const result = await pool.query(
-    `
-    UPDATE departments
-    SET
-      isactive = false,
-      updatedat = CURRENT_TIMESTAMP
-    WHERE id = $1
-    RETURNING *
-    `,
-    [id],
-  );
+  await softDelete("departments", id, "Department not found");
 
-  if (result.rows.length === 0) {
-    throw new Error("Department not found");
-  }
-
-  return result.rows[0];
+  return await getDepartmentById(id);
 };
 
 export const restoreDepartment = async (id) => {
-  const result = await pool.query(
-    `
-    UPDATE departments
-    SET
-      isactive = true,
-      updatedat = CURRENT_TIMESTAMP
-    WHERE id = $1
-    RETURNING *
-    `,
-    [id],
-  );
+  await restoreEntity("departments", id, "Department not found");
 
-  if (result.rows.length === 0) {
-    throw new Error("Department not found");
-  }
-
-  return result.rows[0];
+  return await getDepartmentById(id);
 };
