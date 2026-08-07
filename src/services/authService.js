@@ -96,6 +96,16 @@ export const login = async (email, password) => {
     role: user.role,
   });
 
+  await pool.query(
+    `
+  UPDATE admins
+  SET
+    lastlogin = CURRENT_TIMESTAMP
+  WHERE userid = $1
+  `,
+    [user.id],
+  );
+
   return {
     token,
     user: {

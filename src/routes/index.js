@@ -12,6 +12,8 @@ import courseRegistrationRoutes from "./courseRegistrationRoutes.js";
 import resultRoutes from "./resultRoutes.js";
 import transcriptRoutes from "./transcriptRoutes.js";
 import dashboardRoutes from "./dashboardRoutes.js";
+import profileRoutes from "./profileRoutes.js";
+import notificationRoutes from "./notificationRoutes.js";
 
 const router = express.Router();
 
@@ -41,5 +43,6 @@ router.use("/results", resultRoutes);
 router.use("/transcripts", transcriptRoutes);
 
 router.use("/dashboard", dashboardRoutes);
-
+router.use("/profile", profileRoutes);
+router.use("/notifications", notificationRoutes);
 export default router;
