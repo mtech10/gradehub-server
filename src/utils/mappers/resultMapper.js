@@ -1,22 +1,18 @@
 const mapResult = (row) => ({
   id: row.id,
 
-  score: Number(row.score),
+  caScore: Number(row.ca_score),
+  examScore: Number(row.exam_score),
+  totalScore: Number(row.total_score),
 
   grade: row.grade,
-
   gradePoint: Number(row.gradepoint),
-
   remark: row.remark,
 
   isApproved: row.isapproved,
-
   isActive: row.isactive,
 
-  registeredAt: row.registeredat,
-
   createdAt: row.createdat,
-
   updatedAt: row.updatedat,
 
   student: {
@@ -30,7 +26,7 @@ const mapResult = (row) => ({
     id: row.course_id,
     code: row.course_code,
     title: row.course_title,
-    unit: row.course_unit,
+    creditUnit: Number(row.course_creditunit),
   },
 
   session: {

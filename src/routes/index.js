@@ -10,6 +10,8 @@ import courseRoutes from "./courseRoutes.js";
 import studentRoutes from "./studentRoutes.js";
 import courseRegistrationRoutes from "./courseRegistrationRoutes.js";
 import resultRoutes from "./resultRoutes.js";
+import transcriptRoutes from "./transcriptRoutes.js";
+import dashboardRoutes from "./dashboardRoutes.js";
 
 const router = express.Router();
 
@@ -36,5 +38,8 @@ router.use("/courses", courseRoutes);
 router.use("/students", studentRoutes);
 router.use("/course-registrations", courseRegistrationRoutes);
 router.use("/results", resultRoutes);
+router.use("/transcripts", transcriptRoutes);
+
+router.use("/dashboard", dashboardRoutes);
 
 export default router;
