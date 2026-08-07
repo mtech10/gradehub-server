@@ -15,3 +15,19 @@ export const getStudentTranscript = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getMyTranscript = async (req, res, next) => {
+  try {
+    const studentId = req.user.studentid;
+
+    const transcript = await transcriptService.getStudentTranscript(studentId);
+
+    res.json({
+      success: true,
+      message: "Your transcript retrieved successfully",
+      data: transcript,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

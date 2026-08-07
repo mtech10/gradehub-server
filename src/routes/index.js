@@ -14,6 +14,7 @@ import transcriptRoutes from "./transcriptRoutes.js";
 import dashboardRoutes from "./dashboardRoutes.js";
 import profileRoutes from "./profileRoutes.js";
 import notificationRoutes from "./notificationRoutes.js";
+import optionsRoutes from "./optionsRoutes.js";
 
 const router = express.Router();
 
@@ -45,4 +46,5 @@ router.use("/transcripts", transcriptRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/profile", profileRoutes);
 router.use("/notifications", notificationRoutes);
+router.use("/api", optionsRoutes);
 export default router;

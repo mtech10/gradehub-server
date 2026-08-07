@@ -276,6 +276,7 @@ export const getStudentDashboard = async (user) => {
     registeredCourses,
     approvedResults,
     recentResults,
+    currentCourses,
   ] = await Promise.all([
     pool.query(
       `
@@ -380,6 +381,32 @@ export const getStudentDashboard = async (user) => {
       `,
       [studentid],
     ),
+    pool.query(
+      `
+  SELECT
+
+      c.id,
+      c.code,
+      c.title,
+      c.creditunit
+
+  FROM course_registrations cr
+
+  JOIN courses c
+      ON cr.courseid = c.id
+
+  JOIN semesters sem
+      ON cr.semesterid = sem.id
+
+  WHERE
+      cr.studentid = $1
+  AND cr.isactive = true
+  AND sem.iscurrent = true
+
+  ORDER BY c.code
+  `,
+      [studentid],
+    ),
   ]);
 
   if (!studentResult.rows.length) {
@@ -432,5 +459,31 @@ export const getStudentDashboard = async (user) => {
       score: Number(row.total_score),
       grade: row.grade,
     })),
+
+    currentCourses: currentCourses.rows.map((course) => ({
+      id: course.id,
+      code: course.code,
+      title: course.title,
+      creditUnit: Number(course.creditunit),
+
+      progress: 80,
+    })),
+    activities: [
+      {
+        id: 1,
+        title: "Current Session",
+        description: currentSession.rows[0]?.name ?? "No active session",
+        date: "",
+        type: "session",
+      },
+
+      {
+        id: 2,
+        title: "Current Semester",
+        description: currentSemester.rows[0]?.name ?? "No active semester",
+        date: "",
+        type: "semester",
+      },
+    ],
   };
 };

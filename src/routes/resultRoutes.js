@@ -15,7 +15,7 @@ import {
 const router = express.Router();
 
 router.use(authenticate);
-router.use(authorize("admin"));
+router.use(authorize("admin", "student"));
 
 router.post(
   "/",

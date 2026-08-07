@@ -15,25 +15,43 @@ import {
 const router = express.Router();
 
 router.use(authenticate);
-router.use(authorize("admin"));
+
+router.get(
+  "/current",
+  authorize("student"),
+  courseRegistrationController.getCurrentRegistration,
+);
+
+router.post(
+  "/submit",
+  authorize("student"),
+  courseRegistrationController.submitRegistration,
+);
 
 router.post(
   "/",
+  authorize("admin"),
   createCourseRegistrationValidator,
   validate,
   courseRegistrationController.createCourseRegistration,
 );
 
-router.get("/", courseRegistrationController.getCourseRegistrations);
+router.get(
+  "/",
+  authorize("admin"),
+  courseRegistrationController.getCourseRegistrations,
+);
 
 router.get(
   "/:id",
+  authorize("admin"),
   validateUUID(),
   courseRegistrationController.getCourseRegistrationById,
 );
 
 router.put(
   "/:id",
+  authorize("admin"),
   validateUUID(),
   updateCourseRegistrationValidator,
   validate,
@@ -42,12 +60,14 @@ router.put(
 
 router.patch(
   "/:id/deactivate",
+  authorize("admin"),
   validateUUID(),
   courseRegistrationController.deactivateCourseRegistration,
 );
 
 router.patch(
   "/:id/restore",
+  authorize("admin"),
   validateUUID(),
   courseRegistrationController.restoreCourseRegistration,
 );

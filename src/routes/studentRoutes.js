@@ -25,6 +25,7 @@ router.post(
 );
 
 router.get("/", studentController.getStudents);
+router.get("/stats", studentController.getStudentStats);
 
 router.get("/:id", validateUUID(), studentController.getStudentById);
 

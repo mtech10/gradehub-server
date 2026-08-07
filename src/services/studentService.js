@@ -61,6 +61,7 @@ export const createStudent = async (data) => {
     id: sessionId,
     message: "Session not found",
   });
+
   const result = await pool.query(
     `
     INSERT INTO students
@@ -105,6 +106,7 @@ export const createStudent = async (data) => {
   return await getStudentById(result.rows[0].id);
 };
 
+// RESTORED: The getStudents function that handles your list view!
 export const getStudents = async (filters) => {
   const {
     page = 1,
@@ -134,7 +136,6 @@ export const getStudents = async (filters) => {
     whereClause += whereClause
       ? ` AND s.departmentid = $${index}`
       : ` WHERE s.departmentid = $${index}`;
-
     values.push(departmentId);
     index++;
   }
@@ -143,7 +144,6 @@ export const getStudents = async (filters) => {
     whereClause += whereClause
       ? ` AND s.levelid = $${index}`
       : ` WHERE s.levelid = $${index}`;
-
     values.push(levelId);
     index++;
   }
@@ -152,7 +152,6 @@ export const getStudents = async (filters) => {
     whereClause += whereClause
       ? ` AND s.sessionid = $${index}`
       : ` WHERE s.sessionid = $${index}`;
-
     values.push(sessionId);
     index++;
   }
@@ -166,13 +165,10 @@ export const getStudents = async (filters) => {
         OR s.email ILIKE $${index}
       )
     `;
-
     values.push(`%${search}%`);
-
     whereClause += whereClause
       ? ` AND ${searchClause}`
       : ` WHERE ${searchClause}`;
-
     index++;
   }
 
@@ -186,7 +182,6 @@ export const getStudents = async (filters) => {
   const total = Number(countResult.rows[0].total);
 
   const allowedSort = ["firstname", "lastname", "matricnumber", "createdat"];
-
   const sortBy = allowedSort.includes(sort) ? sort : "lastname";
   const sortOrder = order.toLowerCase() === "desc" ? "DESC" : "ASC";
 
@@ -209,20 +204,11 @@ export const getStudents = async (filters) => {
       ses.name AS session_name
 
     FROM students s
-
-    JOIN departments d
-      ON s.departmentid = d.id
-
-    JOIN levels l
-      ON s.levelid = l.id
-
-    JOIN sessions ses
-      ON s.sessionid = ses.id
-
+    JOIN departments d ON s.departmentid = d.id
+    JOIN levels l ON s.levelid = l.id
+    JOIN sessions ses ON s.sessionid = ses.id
     ${whereClause}
-
     ORDER BY s.${sortBy} ${sortOrder}
-
     LIMIT $${index}
     OFFSET $${index + 1}
     `,
@@ -258,16 +244,9 @@ export const getStudentById = async (id) => {
       ses.name AS session_name
 
     FROM students s
-
-    JOIN departments d
-      ON s.departmentid = d.id
-
-    JOIN levels l
-      ON s.levelid = l.id
-
-    JOIN sessions ses
-      ON s.sessionid = ses.id
-
+    JOIN departments d ON s.departmentid = d.id
+    JOIN levels l ON s.levelid = l.id
+    JOIN sessions ses ON s.sessionid = ses.id
     WHERE s.id = $1
     `,
     [id],
@@ -284,7 +263,6 @@ export const updateStudent = async (id, data) => {
   });
 
   const current = await getStudentById(id);
-
   const updated = {
     ...current,
     ...data,
@@ -310,23 +288,29 @@ export const updateStudent = async (id, data) => {
     });
   }
 
+  // FIXED: Fallback to the new IDs if provided in the update payload, otherwise keep the old mapped ID
+  const updateDepartmentId = updated.departmentId || updated.department?.id;
+  const updateLevelId = updated.levelId || updated.level?.id;
+  const updateSessionId = updated.sessionId || updated.session?.id;
+
   await ensureActive({
     table: "departments",
-    id: updated.departmentId,
+    id: updateDepartmentId,
     message: "Department not found",
   });
 
   await ensureActive({
     table: "levels",
-    id: updated.levelId,
+    id: updateLevelId,
     message: "Level not found",
   });
 
   await ensureActive({
     table: "sessions",
-    id: updated.sessionId,
+    id: updateSessionId,
     message: "Session not found",
   });
+
   await pool.query(
     `
     UPDATE students
@@ -357,9 +341,9 @@ export const updateStudent = async (id, data) => {
       updated.phone,
       updated.dateOfBirth,
       updated.admissionYear,
-      updated.department.id,
-      updated.level.id,
-      updated.session.id,
+      updateDepartmentId, // FIXED
+      updateLevelId, // FIXED
+      updateSessionId, // FIXED
       updated.photo,
       id,
     ],
@@ -376,4 +360,18 @@ export const deactivateStudent = async (id) => {
 export const restoreStudent = async (id) => {
   const student = await restoreEntity("students", id, "Student not found");
   return mapStudent(student);
+};
+
+export const getStudentStats = async () => {
+  const query = `
+    SELECT 
+      COUNT(*) AS total_students,
+      COUNT(*) FILTER (WHERE isactive = true) AS active_students,
+      COUNT(*) FILTER (WHERE isactive = false) AS inactive_students,
+      COUNT(DISTINCT departmentid) AS total_departments
+    FROM students;
+  `;
+
+  const result = await pool.query(query);
+  return result.rows[0];
 };

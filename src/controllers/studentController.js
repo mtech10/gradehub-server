@@ -68,3 +68,18 @@ export const restoreStudent = async (req, res, next) => {
     next(error);
   }
 };
+
+// Add this to your backend studentController.js
+export const getStudentStats = async (req, res, next) => {
+  try {
+    const stats = await studentService.getStudentStats();
+    return response(
+      res,
+      stats,
+      "Student statistics retrieved successfully",
+      200,
+    );
+  } catch (error) {
+    next(error);
+  }
+};

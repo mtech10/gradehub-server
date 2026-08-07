@@ -98,3 +98,40 @@ export const restoreCourseRegistration = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getCurrentRegistration = async (req, res, next) => {
+  try {
+    const studentId = req.user.studentid;
+
+    const registrationData =
+      await courseRegistrationService.getCurrentStudentRegistrationData(
+        studentId,
+      );
+
+    return response(
+      res,
+      registrationData,
+      "Current registration data retrieved successfully",
+      200,
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const submitRegistration = async (req, res, next) => {
+  try {
+    const studentId = req.user.studentid;
+    const { registerCourseCodes, dropCourseCodes } = req.body;
+
+    const result = await courseRegistrationService.processStudentRegistration(
+      studentId,
+      registerCourseCodes,
+      dropCourseCodes,
+    );
+
+    return response(res, result, "Registration updated successfully", 200);
+  } catch (error) {
+    next(error);
+  }
+};
