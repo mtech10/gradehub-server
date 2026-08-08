@@ -26,7 +26,7 @@ const mapResult = (row) => ({
     id: row.course_id,
     code: row.course_code,
     title: row.course_title,
-    creditUnit: Number(row.course_creditunit),
+    creditUnit: Number(row.course_unit),
   },
 
   session: {

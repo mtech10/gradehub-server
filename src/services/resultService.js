@@ -445,3 +445,149 @@ export const restoreResult = async (id) => {
 
   return await getResultById(id);
 };
+
+export const getResultStatistics = async (filters = {}) => {
+  const { search = "", sessionId, semesterId } = filters;
+
+  const values = [];
+  let index = 1;
+
+  let resultWhere = "WHERE r.isactive = true";
+  let registrationWhere = "WHERE cr.isactive = true";
+
+  // Session filter
+  if (sessionId) {
+    resultWhere += ` AND r.sessionid = $${index}`;
+    registrationWhere += ` AND cr.sessionid = $${index}`;
+
+    values.push(sessionId);
+    index++;
+  }
+
+  // Semester filter
+  if (semesterId) {
+    resultWhere += ` AND r.semesterid = $${index}`;
+    registrationWhere += ` AND cr.semesterid = $${index}`;
+
+    values.push(semesterId);
+    index++;
+  }
+
+  // Search filter
+  if (search) {
+    const searchClause = `
+      (
+        s.firstname ILIKE $${index}
+        OR s.lastname ILIKE $${index}
+        OR s.matricnumber ILIKE $${index}
+        OR c.code ILIKE $${index}
+        OR c.title ILIKE $${index}
+      )
+    `;
+
+    resultWhere += ` AND ${searchClause}`;
+
+    registrationWhere += ` AND (
+      s.firstname ILIKE $${index}
+      OR s.lastname ILIKE $${index}
+      OR s.matricnumber ILIKE $${index}
+      OR c.code ILIKE $${index}
+      OR c.title ILIKE $${index}
+    )`;
+
+    values.push(`%${search}%`);
+    index++;
+  }
+
+  /*
+   * TOTAL RESULTS
+   */
+  const totalResultsQuery = `
+    SELECT COUNT(*) AS total
+    FROM results r
+
+    JOIN students s
+      ON r.studentid = s.id
+
+    JOIN courses c
+      ON r.courseid = c.id
+
+    ${resultWhere}
+  `;
+
+  /*
+   * APPROVED RESULTS
+   */
+  const approvedResultsQuery = `
+    SELECT COUNT(*) AS total
+    FROM results r
+
+    JOIN students s
+      ON r.studentid = s.id
+
+    JOIN courses c
+      ON r.courseid = c.id
+
+    ${resultWhere}
+      AND r.isapproved = true
+  `;
+
+  /*
+   * PENDING RESULTS
+   */
+  const pendingResultsQuery = `
+    SELECT COUNT(*) AS total
+    FROM results r
+
+    JOIN students s
+      ON r.studentid = s.id
+
+    JOIN courses c
+      ON r.courseid = c.id
+
+    ${resultWhere}
+      AND r.isapproved = false
+  `;
+
+  /*
+   * MISSING RESULTS
+   *
+   * A missing result is an active course registration
+   * that does not have an active result.
+   */
+  const missingResultsQuery = `
+    SELECT COUNT(*) AS total
+    FROM course_registrations cr
+
+    JOIN students s
+      ON cr.studentid = s.id
+
+    JOIN courses c
+      ON cr.courseid = c.id
+
+    LEFT JOIN results r
+      ON r.studentid = cr.studentid
+      AND r.courseid = cr.courseid
+      AND r.sessionid = cr.sessionid
+      AND r.semesterid = cr.semesterid
+      AND r.isactive = true
+
+    ${registrationWhere}
+      AND r.id IS NULL
+  `;
+
+  const [totalResults, approvedResults, pendingResults, missingResults] =
+    await Promise.all([
+      pool.query(totalResultsQuery, values),
+      pool.query(approvedResultsQuery, values),
+      pool.query(pendingResultsQuery, values),
+      pool.query(missingResultsQuery, values),
+    ]);
+
+  return {
+    totalResults: Number(totalResults.rows[0].total),
+    approved: Number(approvedResults.rows[0].total),
+    pending: Number(pendingResults.rows[0].total),
+    missing: Number(missingResults.rows[0].total),
+  };
+};

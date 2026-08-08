@@ -7,15 +7,23 @@ import authorize from "../middleware/authorize.js";
 import validate from "../middleware/validate.js";
 import validateUUID from "../middleware/validateUUID.js";
 
+import uploadResultFile from "../middleware/uploadResultFile.js";
+
 import {
   createResultValidator,
   updateResultValidator,
 } from "../validators/resultValidator.js";
+import { resultUploadValidator } from "../validators/resultUploadValidator.js";
 
 const router = express.Router();
 
 router.use(authenticate);
-router.use(authorize("admin", "student"));
+
+// Student routes
+router.get("/my-results", authorize("student"), resultController.getMyResults);
+
+// Admin routes
+router.use(authorize("admin"));
 
 router.post(
   "/",
@@ -24,7 +32,27 @@ router.post(
   resultController.createResult,
 );
 
+// Excel upload validation
+router.post(
+  "/upload/validate",
+  uploadResultFile.single("file"),
+  resultUploadValidator,
+  validate,
+  resultController.validateUpload,
+);
+
+router.post(
+  "/upload",
+  uploadResultFile.single("file"),
+  resultUploadValidator,
+  validate,
+  resultController.uploadResults,
+);
+
+// Results
 router.get("/", resultController.getResults);
+
+router.get("/statistics", resultController.getResultStatistics);
 
 router.get("/:id", validateUUID(), resultController.getResultById);
 

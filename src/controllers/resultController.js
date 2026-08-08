@@ -1,5 +1,6 @@
 import * as resultService from "../services/resultService.js";
 import { response } from "../utils/response.js";
+import * as resultUploadService from "../services/resultUploadService.js";
 
 export const createResult = async (req, res, next) => {
   try {
@@ -19,6 +20,50 @@ export const getResults = async (req, res, next) => {
       res,
       results,
       "Results retrieved successfully",
+      200,
+      pagination,
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getResultStatistics = async (req, res, next) => {
+  try {
+    const statistics = await resultService.getResultStatistics(req.query);
+
+    return response(
+      res,
+      statistics,
+      "Result statistics retrieved successfully",
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getMyResults = async (req, res, next) => {
+  try {
+    const studentId = req.user.studentid;
+
+    if (!studentId) {
+      return res.status(404).json({
+        success: false,
+        message: "Student profile not linked to this account",
+        errors: [],
+      });
+    }
+
+    const { results, pagination } = await resultService.getResults({
+      ...req.query,
+      studentId,
+      approved: "true",
+    });
+
+    return response(
+      res,
+      results,
+      "Student results retrieved successfully",
       200,
       pagination,
     );
@@ -72,6 +117,72 @@ export const restoreResult = async (req, res, next) => {
     const result = await resultService.restoreResult(req.params.id);
 
     return response(res, result, "Result restored successfully");
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const validateUpload = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Result Excel file is required",
+        errors: [],
+      });
+    }
+
+    const { sessionId, semesterId, departmentId, courseId, levelId } = req.body;
+
+    const validation = await resultUploadService.validateResultUpload({
+      fileBuffer: req.file.buffer,
+      metadata: {
+        sessionId,
+        semesterId,
+        departmentId,
+        courseId,
+        levelId,
+      },
+    });
+
+    return response(res, validation, "Result file validated successfully");
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const uploadResults = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Result Excel file is required",
+        errors: [],
+      });
+    }
+
+    const {
+      sessionId,
+      semesterId,
+      departmentId,
+      courseId,
+      levelId,
+      uploadType,
+    } = req.body;
+
+    const result = await resultUploadService.uploadResults({
+      fileBuffer: req.file.buffer,
+      metadata: {
+        sessionId,
+        semesterId,
+        departmentId,
+        courseId,
+        levelId,
+      },
+      uploadType,
+    });
+
+    return response(res, result, "Results uploaded successfully", 201);
   } catch (error) {
     next(error);
   }

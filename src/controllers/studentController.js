@@ -1,5 +1,6 @@
 import * as studentService from "../services/studentService.js";
 import { response } from "../utils/response.js";
+import pool from "../config/database.js";
 
 export const createStudent = async (req, res, next) => {
   try {
@@ -31,11 +32,25 @@ export const getStudents = async (req, res, next) => {
 
 export const getStudentById = async (req, res, next) => {
   try {
-    const student = await studentService.getStudentById(req.params.id);
+    const { id } = req.params;
+    const result = await pool.query(
+      `SELECT s.*, d.name AS department_name, l.name AS level_name 
+       FROM students s 
+       LEFT JOIN departments d ON s.departmentid = d.id 
+       LEFT JOIN levels l ON s.levelid = l.id 
+       WHERE s.id = $1`,
+      [id],
+    );
 
-    return response(res, student, "Student retrieved successfully");
+    if (result.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Student not found" });
+    }
+
+    return res.status(200).json({ success: true, data: result.rows[0] });
   } catch (error) {
-    next(error);
+    next(error); // This prevents hanging if the database crashes
   }
 };
 

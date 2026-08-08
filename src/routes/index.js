@@ -46,5 +46,5 @@ router.use("/transcripts", transcriptRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/profile", profileRoutes);
 router.use("/notifications", notificationRoutes);
-router.use("/api", optionsRoutes);
+router.use("/", optionsRoutes);
 export default router;
