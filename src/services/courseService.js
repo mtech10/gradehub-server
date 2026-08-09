@@ -46,7 +46,6 @@ export const createCourse = async (data) => {
       code,
       departmentid: departmentId,
     },
-    excludeId: id,
     message: "Course already exists",
   });
 
@@ -324,4 +323,23 @@ export const restoreCourse = async (id) => {
   await restoreEntity("courses", id, "Course not found");
 
   return await getCourseById(id);
+};
+
+export const getCourseStatistics = async () => {
+  const result = await pool.query(`
+    SELECT
+      COUNT(*) AS total_courses,
+      COUNT(*) FILTER (WHERE isactive = true) AS active_courses,
+      COUNT(DISTINCT departmentid) AS departments
+    FROM courses
+  `);
+
+  const row = result.rows[0];
+
+  return {
+    totalCourses: Number(row.total_courses),
+    activeCourses: Number(row.active_courses),
+    departments: Number(row.departments),
+    pendingApproval: 0,
+  };
 };

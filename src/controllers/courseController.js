@@ -66,3 +66,17 @@ export const restoreCourse = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getCourseStatistics = async (req, res, next) => {
+  try {
+    const statistics = await courseService.getCourseStatistics();
+
+    return response(
+      res,
+      statistics,
+      "Course statistics retrieved successfully",
+    );
+  } catch (error) {
+    next(error);
+  }
+};

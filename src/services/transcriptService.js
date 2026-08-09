@@ -1,14 +1,15 @@
 import pool from "../config/database.js";
 
 import apiError from "../utils/apiError.js";
-
 import calculateGPA from "../utils/calculateGPA.js";
 import transcriptSummary from "../utils/transcriptSummary.js";
 
 import mapTranscript from "../utils/mappers/transcriptMapper.js";
 
 export const getStudentTranscript = async (studentId) => {
-  // Verify student exists
+  // ---------------------------------------------------------
+  // 1. Get student information
+  // ---------------------------------------------------------
   const studentResult = await pool.query(
     `
       SELECT
@@ -22,17 +23,17 @@ export const getStudentTranscript = async (studentId) => {
         s.phone,
         s.photo,
 
-        d.id   AS department_id,
+        d.id AS department_id,
         d.name AS department_name,
 
-        l.id   AS level_id,
+        l.id AS level_id,
         l.name AS level_name,
 
-        ses.id          AS session_id,
-        ses.name        AS session_name,
-        ses.iscurrent   AS session_iscurrent
-      
-        FROM students s
+        ses.id AS session_id,
+        ses.name AS session_name,
+        ses.iscurrent AS session_iscurrent
+
+      FROM students s
 
       JOIN departments d
         ON s.departmentid = d.id
@@ -55,55 +56,81 @@ export const getStudentTranscript = async (studentId) => {
 
   const student = studentResult.rows[0];
 
+  // ---------------------------------------------------------
+  // 2. Get student's registered courses
+  // ---------------------------------------------------------
   const transcriptResult = await pool.query(
     `
-    SELECT
+      SELECT
 
-      r.id,
-      r.ca_score,
-      r.exam_score,
-      r.total_score,
-      r.grade,
-      r.gradepoint,
-      r.remark,
+        cr.id AS registration_id,
+        cr.registeredat,
+        cr.isactive AS registration_isactive,
 
-      c.id           AS course_id,
-      c.code         AS course_code,
-      c.title        AS course_title,
-      c.creditunit   AS course_creditunit,
+        c.id AS course_id,
+        c.code AS course_code,
+        c.title AS course_title,
+        c.creditunit AS course_creditunit,
 
-    ses.id          AS session_id,
-    ses.name        AS session_name,
-    ses.startdate   AS session_startdate,
-    ses.iscurrent   AS session_iscurrent,
+        -- Department offering the course
+        course_dept.id AS course_department_id,
+        course_dept.name AS course_department_name,
 
-    sem.id          AS semester_id,
-    sem.name        AS semester_name,
-    sem.startdate   AS semester_startdate,
-    sem.iscurrent   AS semester_iscurrent
+        ses.id AS session_id,
+        ses.name AS session_name,
+        ses.startdate AS session_startdate,
+        ses.iscurrent AS session_iscurrent,
 
-    FROM results r
+        sem.id AS semester_id,
+        sem.name AS semester_name,
+        sem.startdate AS semester_startdate,
+        sem.iscurrent AS semester_iscurrent,
 
-    JOIN courses c
-      ON r.courseid = c.id
+        r.id AS result_id,
+        r.ca_score,
+        r.exam_score,
+        r.total_score,
+        r.grade,
+        r.gradepoint,
+        r.remark
 
-    JOIN sessions ses
-      ON r.sessionid = ses.id
+      FROM course_registrations cr
 
-    JOIN semesters sem
-      ON r.semesterid = sem.id
+      JOIN courses c
+        ON cr.courseid = c.id
 
-    WHERE r.studentid = $1
-      AND r.isactive = true
-      AND r.isapproved = true
+      -- Department responsible for/offering the course
+      LEFT JOIN departments course_dept
+        ON c.departmentid = course_dept.id
 
-    ORDER BY
-      ses.startdate,
-      sem.startdate,
-      c.code
-  `,
+      JOIN sessions ses
+        ON cr.sessionid = ses.id
+
+      JOIN semesters sem
+        ON cr.semesterid = sem.id
+
+      LEFT JOIN results r
+        ON r.studentid = cr.studentid
+        AND r.courseid = cr.courseid
+        AND r.sessionid = cr.sessionid
+        AND r.semesterid = cr.semesterid
+        AND r.isactive = true
+        AND r.isapproved = true
+
+      WHERE cr.studentid = $1
+        AND cr.isactive = true
+
+      ORDER BY
+        ses.startdate DESC,
+        sem.startdate DESC,
+        c.code ASC
+    `,
     [studentId],
   );
+
+  // ---------------------------------------------------------
+  // 3. Group courses by session
+  // ---------------------------------------------------------
   const sessionMap = new Map();
 
   for (const row of transcriptResult.rows) {
@@ -118,6 +145,9 @@ export const getStudentTranscript = async (studentId) => {
 
     const session = sessionMap.get(row.session_id);
 
+    // -------------------------------------------------------
+    // Create semester inside the session
+    // -------------------------------------------------------
     if (!session.semesters.has(row.semester_id)) {
       session.semesters.set(row.semester_id, {
         id: row.semester_id,
@@ -129,22 +159,73 @@ export const getStudentTranscript = async (studentId) => {
 
     const semester = session.semesters.get(row.semester_id);
 
+    // -------------------------------------------------------
+    // Determine course status
+    // -------------------------------------------------------
+    let status = "current";
+
+    if (row.result_id) {
+      if (row.grade && row.grade.toUpperCase() === "F") {
+        status = "failed";
+      } else if (row.grade) {
+        status = "completed";
+      }
+    }
+
+    // -------------------------------------------------------
+    // Add course
+    // -------------------------------------------------------
     semester.courses.push({
       id: row.course_id,
+      registrationId: row.registration_id,
+
       code: row.course_code,
       title: row.course_title,
-      creditUnit: Number(row.course_creditunit),
 
-      caScore: Number(row.ca_score),
-      examScore: Number(row.exam_score),
-      totalScore: Number(row.total_score),
+      creditUnit: Number(row.course_creditunit || 0),
 
-      grade: row.grade,
-      gradePoint: Number(row.gradepoint),
+      // Department offering this course
+      department: {
+        id: row.course_department_id || null,
+        name: row.course_department_name || null,
+      },
 
-      remark: row.remark,
+      registeredAt: row.registeredat,
+
+      status,
+
+      // Result information
+      resultId: row.result_id || null,
+
+      caScore:
+        row.ca_score !== null && row.ca_score !== undefined
+          ? Number(row.ca_score)
+          : null,
+
+      examScore:
+        row.exam_score !== null && row.exam_score !== undefined
+          ? Number(row.exam_score)
+          : null,
+
+      totalScore:
+        row.total_score !== null && row.total_score !== undefined
+          ? Number(row.total_score)
+          : null,
+
+      grade: row.grade || null,
+
+      gradePoint:
+        row.gradepoint !== null && row.gradepoint !== undefined
+          ? Number(row.gradepoint)
+          : null,
+
+      remark: row.remark || null,
     });
   }
+
+  // ---------------------------------------------------------
+  // 4. Convert grouped sessions into arrays
+  // ---------------------------------------------------------
   const sessions = [];
   const semesterSummaries = [];
 
@@ -152,7 +233,24 @@ export const getStudentTranscript = async (studentId) => {
     const semesters = [];
 
     for (const semester of session.semesters.values()) {
-      const gpa = calculateGPA(semester.courses);
+      /*
+       * Only courses with actual results contribute
+       * to GPA calculations.
+       */
+      const gradedCourses = semester.courses.filter(
+        (course) =>
+          course.resultId && course.grade && course.gradePoint !== null,
+      );
+
+      let gpa = {
+        gpa: 0,
+        totalCredits: 0,
+        totalPoints: 0,
+      };
+
+      if (gradedCourses.length > 0) {
+        gpa = calculateGPA(gradedCourses);
+      }
 
       semester.gpa = gpa.gpa;
       semester.totalCredits = gpa.totalCredits;
@@ -167,16 +265,24 @@ export const getStudentTranscript = async (studentId) => {
     sessions.push({
       id: session.id,
       name: session.name,
+      isCurrent: session.isCurrent,
       semesters,
     });
   }
+
+  // ---------------------------------------------------------
+  // 5. Build final transcript response
+  // ---------------------------------------------------------
   return mapTranscript({
     student: {
       id: student.id,
+
       matricNumber: student.matricnumber,
+
       firstName: student.firstname,
       middleName: student.middlename,
       lastName: student.lastname,
+
       gender: student.gender,
       email: student.email,
       phone: student.phone,

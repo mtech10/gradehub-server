@@ -1,5 +1,4 @@
 import express from "express";
-
 import * as courseController from "../controllers/courseController.js";
 
 import authenticate from "../middleware/authenticate.js";
@@ -15,21 +14,36 @@ import {
 const router = express.Router();
 
 router.use(authenticate);
-router.use(authorize("admin"));
+
+// Admin + Student
+router.get(
+  "/statistics",
+  authorize("admin"),
+  courseController.getCourseStatistics,
+);
+
+router.get("/", authorize("admin", "student"), courseController.getCourses);
+
+router.get(
+  "/:id",
+  authorize("admin", "student"),
+  validateUUID(),
+  courseController.getCourseById,
+);
+
+// Admin only
 
 router.post(
   "/",
+  authorize("admin"),
   createCourseValidator,
   validate,
   courseController.createCourse,
 );
 
-router.get("/", courseController.getCourses);
-
-router.get("/:id", validateUUID(), courseController.getCourseById);
-
 router.put(
   "/:id",
+  authorize("admin"),
   validateUUID(),
   updateCourseValidator,
   validate,
@@ -38,10 +52,16 @@ router.put(
 
 router.patch(
   "/:id/deactivate",
+  authorize("admin"),
   validateUUID(),
   courseController.deactivateCourse,
 );
 
-router.patch("/:id/restore", validateUUID(), courseController.restoreCourse);
+router.patch(
+  "/:id/restore",
+  authorize("admin"),
+  validateUUID(),
+  courseController.restoreCourse,
+);
 
 export default router;

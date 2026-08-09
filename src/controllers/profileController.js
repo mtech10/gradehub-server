@@ -108,3 +108,4 @@ export const updateStudentPhoto = async (req, res, next) => {
     next(error);
   }
 };
+

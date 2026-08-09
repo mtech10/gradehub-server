@@ -8,6 +8,7 @@ import checkDuplicate from "../utils/checkDuplicate.js";
 import softDelete from "../utils/softDelete.js";
 import restoreEntity from "../utils/restoreEntity.js";
 import calculateGrade from "../utils/calculateGrade.js";
+import XLSX from "xlsx";
 
 export const createResult = async (data) => {
   const { studentId, courseId, sessionId, semesterId, caScore, examScore } =

@@ -4,18 +4,15 @@ import * as courseRegistrationController from "../controllers/courseRegistration
 
 import authenticate from "../middleware/authenticate.js";
 import authorize from "../middleware/authorize.js";
-import validate from "../middleware/validate.js";
 import validateUUID from "../middleware/validateUUID.js";
-
-import {
-  createCourseRegistrationValidator,
-  updateCourseRegistrationValidator,
-} from "../validators/courseRegistrationValidator.js";
 
 const router = express.Router();
 
 router.use(authenticate);
 
+/*
+ * Student routes
+ */
 router.get(
   "/current",
   authorize("student"),
@@ -25,15 +22,13 @@ router.get(
 router.post(
   "/submit",
   authorize("student"),
-  courseRegistrationController.submitRegistration,
+  courseRegistrationController.submitCourseRegistration,
 );
 
-router.post(
-  "/",
-  authorize("admin"),
-  createCourseRegistrationValidator,
-  validate,
-  courseRegistrationController.createCourseRegistration,
+router.get(
+  "/me",
+  authorize("student"),
+  courseRegistrationController.getCurrentRegistration,
 );
 
 router.get(
@@ -49,12 +44,16 @@ router.get(
   courseRegistrationController.getCourseRegistrationById,
 );
 
+router.post(
+  "/",
+  authorize("admin"),
+  courseRegistrationController.createCourseRegistration,
+);
+
 router.put(
   "/:id",
   authorize("admin"),
   validateUUID(),
-  updateCourseRegistrationValidator,
-  validate,
   courseRegistrationController.updateCourseRegistration,
 );
 

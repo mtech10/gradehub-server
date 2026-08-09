@@ -119,18 +119,23 @@ export const getCurrentRegistration = async (req, res, next) => {
   }
 };
 
-export const submitRegistration = async (req, res, next) => {
+export const submitCourseRegistration = async (req, res, next) => {
   try {
-    const studentId = req.user.studentid;
-    const { registerCourseCodes, dropCourseCodes } = req.body;
+    const { registerCourseCodes = [], dropCourseCodes = [] } = req.body;
 
-    const result = await courseRegistrationService.processStudentRegistration(
+    const studentId = req.user.studentid;
+
+    const result = await courseRegistrationService.processStudentRegistration({
       studentId,
       registerCourseCodes,
       dropCourseCodes,
-    );
+    });
 
-    return response(res, result, "Registration updated successfully", 200);
+    return res.status(200).json({
+      success: true,
+      message: "Course registration submitted successfully",
+      data: result,
+    });
   } catch (error) {
     next(error);
   }
