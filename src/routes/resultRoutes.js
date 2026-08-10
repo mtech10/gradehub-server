@@ -50,6 +50,10 @@ router.post(
 );
 
 // Results
+router.patch("/bulk-approve", resultController.bulkApproveResults);
+router.delete("/bulk-delete", resultController.bulkDeleteResults);
+router.patch("/bulk-deactivate", resultController.bulkDeactivateResults);
+
 router.get("/", resultController.getResults);
 
 router.get("/statistics", resultController.getResultStatistics);

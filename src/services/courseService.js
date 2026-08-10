@@ -1,14 +1,9 @@
 import pool from "../config/database.js";
-
 import apiError from "../utils/apiError.js";
-
 import { buildPagination } from "../utils/pagination.js";
-
 import mapCourse from "../utils/mappers/courseMapper.js";
-
 import checkDuplicate from "../utils/checkDuplicate.js";
 import ensureActive from "../utils/ensureActive.js";
-
 import softDelete from "../utils/softDelete.js";
 import restoreEntity from "../utils/restoreEntity.js";
 
@@ -20,6 +15,7 @@ export const createCourse = async (data) => {
     departmentId,
     levelId,
     semesterId,
+    sessionId, // Added sessionId
     description,
   } = data;
 
@@ -28,18 +24,24 @@ export const createCourse = async (data) => {
     id: departmentId,
     message: "Department not found",
   });
-
   await ensureActive({
     table: "levels",
     id: levelId,
     message: "Level not found",
   });
-
   await ensureActive({
     table: "semesters",
     id: semesterId,
     message: "Semester not found",
   });
+
+  // Validate the session ID
+  await ensureActive({
+    table: "sessions",
+    id: sessionId,
+    message: "Session not found",
+  });
+
   await checkDuplicate({
     table: "courses",
     conditions: {
@@ -56,15 +58,25 @@ export const createCourse = async (data) => {
       departmentid,
       levelid,
       semesterid,
+      sessionid,
       code,
       title,
       creditunit,
       description
     )
-    VALUES ($1,$2,$3,$4,$5,$6,$7)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
     RETURNING id
     `,
-    [departmentId, levelId, semesterId, code, title, creditUnit, description],
+    [
+      departmentId,
+      levelId,
+      semesterId,
+      sessionId,
+      code,
+      title,
+      creditUnit,
+      description,
+    ],
   );
 
   return await getCourseById(result.rows[0].id);
@@ -78,6 +90,7 @@ export const getCourses = async (filters) => {
     departmentId,
     levelId,
     semesterId,
+    sessionId, // Added sessionId to filters
     status = "active",
     sort = "title",
     order = "asc",
@@ -90,16 +103,16 @@ export const getCourses = async (filters) => {
   let index = 1;
 
   if (status === "active") {
-    whereClause += ` WHERE c.isactive = true`;
+    whereClause += ` WHERE (c.isactive = true OR c.isactive IS NULL)`;
   } else if (status === "inactive") {
     whereClause += ` WHERE c.isactive = false`;
   }
 
+  // Make filters flexible so they don't break student registration if data is loose
   if (departmentId) {
     whereClause += whereClause
       ? ` AND c.departmentid = $${index}`
       : ` WHERE c.departmentid = $${index}`;
-
     values.push(departmentId);
     index++;
   }
@@ -108,7 +121,6 @@ export const getCourses = async (filters) => {
     whereClause += whereClause
       ? ` AND c.levelid = $${index}`
       : ` WHERE c.levelid = $${index}`;
-
     values.push(levelId);
     index++;
   }
@@ -117,8 +129,16 @@ export const getCourses = async (filters) => {
     whereClause += whereClause
       ? ` AND c.semesterid = $${index}`
       : ` WHERE c.semesterid = $${index}`;
-
     values.push(semesterId);
+    index++;
+  }
+
+  // Update sessionId filter to be optional if the course doesn't strictly require matching session rows
+  if (sessionId) {
+    whereClause += whereClause
+      ? ` AND (c.sessionid = $${index} OR c.sessionid IS NULL)`
+      : ` WHERE (c.sessionid = $${index} OR c.sessionid IS NULL)`;
+    values.push(sessionId);
     index++;
   }
 
@@ -148,9 +168,7 @@ export const getCourses = async (filters) => {
   const total = Number(countResult.rows[0].total);
 
   const allowedSort = ["title", "code", "creditunit", "createdat", "updatedat"];
-
   const sortBy = allowedSort.includes(sort) ? sort : "title";
-
   const sortOrder = order.toLowerCase() === "desc" ? "DESC" : "ASC";
 
   values.push(limit);
@@ -170,18 +188,24 @@ export const getCourses = async (filters) => {
       l.name AS level_name,
 
       s.id   AS semester_id,
-      s.name AS semester_name
+      s.name AS semester_name,
+
+      ss.id  AS session_id,
+      ss.name AS session_name
 
     FROM courses c
 
-    JOIN departments d
+    LEFT JOIN departments d
       ON c.departmentid = d.id
 
-    JOIN levels l
+    LEFT JOIN levels l
       ON c.levelid = l.id
 
-    JOIN semesters s
+    LEFT JOIN semesters s
       ON c.semesterid = s.id
+
+    LEFT JOIN sessions ss
+      ON c.sessionid = ss.id
 
     ${whereClause}
 
@@ -214,18 +238,24 @@ export const getCourseById = async (id) => {
       l.name AS level_name,
 
       s.id   AS semester_id,
-      s.name AS semester_name
+      s.name AS semester_name,
+
+      ss.id  AS session_id,
+      ss.name AS session_name
 
     FROM courses c
 
-    JOIN departments d
+    LEFT JOIN departments d
       ON c.departmentid = d.id
 
-    JOIN levels l
+    LEFT JOIN levels l
       ON c.levelid = l.id
 
-    JOIN semesters s
+    LEFT JOIN semesters s
       ON c.semesterid = s.id
+
+    LEFT JOIN sessions ss
+      ON c.sessionid = ss.id
 
     WHERE c.id = $1
     `,
@@ -240,11 +270,7 @@ export const getCourseById = async (id) => {
 };
 
 export const updateCourse = async (id, data) => {
-  await ensureActive({
-    table: "courses",
-    id,
-    message: "Course not found",
-  });
+  await ensureActive({ table: "courses", id, message: "Course not found" });
 
   const {
     code,
@@ -253,6 +279,7 @@ export const updateCourse = async (id, data) => {
     departmentId,
     levelId,
     semesterId,
+    sessionId, // Added sessionId
     description,
   } = data;
 
@@ -261,25 +288,27 @@ export const updateCourse = async (id, data) => {
     id: departmentId,
     message: "Department not found",
   });
-
   await ensureActive({
     table: "levels",
     id: levelId,
     message: "Level not found",
   });
-
   await ensureActive({
     table: "semesters",
     id: semesterId,
     message: "Semester not found",
   });
 
+  // Validate the session ID
+  await ensureActive({
+    table: "sessions",
+    id: sessionId,
+    message: "Session not found",
+  });
+
   await checkDuplicate({
     table: "courses",
-    conditions: {
-      code,
-      departmentid: departmentId,
-    },
+    conditions: { code, departmentid: departmentId },
     excludeId: id,
     message: "Course already exists",
   });
@@ -291,17 +320,19 @@ export const updateCourse = async (id, data) => {
       departmentid = $1,
       levelid = $2,
       semesterid = $3,
-      code = $4,
-      title = $5,
-      creditunit = $6,
-      description = $7,
+      sessionid = $4,
+      code = $5,
+      title = $6,
+      creditunit = $7,
+      description = $8,
       updatedat = CURRENT_TIMESTAMP
-    WHERE id = $8
+    WHERE id = $9
     `,
     [
       departmentId,
       levelId,
       semesterId,
+      sessionId,
       code,
       title,
       creditUnit,

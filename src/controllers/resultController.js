@@ -1,6 +1,7 @@
 import * as resultService from "../services/resultService.js";
 import { response } from "../utils/response.js";
 import * as resultUploadService from "../services/resultUploadService.js";
+import pool from "../config/database.js";
 
 export const createResult = async (req, res, next) => {
   try {
@@ -104,9 +105,20 @@ export const approveResult = async (req, res, next) => {
 
 export const deactivateResult = async (req, res, next) => {
   try {
-    const result = await resultService.deactivateResult(req.params.id);
+    const { id } = req.params;
 
-    return response(res, result, "Result deactivated successfully");
+    const result = await pool.query(
+      `UPDATE results SET isapproved = false WHERE id = $1 RETURNING *`,
+      [id],
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Result not found" });
+    }
+
+    res
+      .status(200)
+      .json({ message: "Result suspended successfully", data: result.rows[0] });
   } catch (error) {
     next(error);
   }
@@ -183,6 +195,62 @@ export const uploadResults = async (req, res, next) => {
     });
 
     return response(res, result, "Results uploaded successfully", 201);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const bulkApproveResults = async (req, res, next) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || !ids.length) {
+      return res.status(400).json({ message: "No result IDs provided" });
+    }
+
+    await pool.query(
+      `UPDATE results SET isapproved = true WHERE id = ANY($1::uuid[])`,
+      [ids],
+    );
+
+    res.status(200).json({ message: "Results approved successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const bulkDeleteResults = async (req, res, next) => {
+  try {
+    const ids = req.body?.ids;
+
+    if (!ids || !ids.length) {
+      return res
+        .status(400)
+        .json({ message: "No result IDs provided for deletion" });
+    }
+
+    await pool.query(`DELETE FROM results WHERE id = ANY($1::uuid[])`, [ids]);
+
+    res.status(200).json({ message: "Results deleted successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const bulkDeactivateResults = async (req, res, next) => {
+  try {
+    const ids = req.body?.ids;
+    if (!ids || !ids.length) {
+      return res.status(400).json({ message: "No result IDs provided" });
+    }
+
+    await pool.query(
+      `UPDATE results SET isapproved = false WHERE id = ANY($1::uuid[])`,
+      [ids],
+    );
+
+    res
+      .status(200)
+      .json({ message: "Selected results suspended successfully" });
   } catch (error) {
     next(error);
   }
