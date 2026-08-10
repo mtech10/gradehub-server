@@ -12,6 +12,8 @@ import {
   updateDepartmentValidator,
 } from "../validators/departmentValidator.js";
 
+import { getDepartmentStats } from "../controllers/departmentController.js";
+
 const router = express.Router();
 
 router.use(authenticate);
@@ -30,6 +32,8 @@ router.get(
   authorize("admin"),
   departmentController.getDepartments,
 );
+
+router.get("/stats", authenticate, authorize("admin"), getDepartmentStats);
 
 router.get(
   "/:id",

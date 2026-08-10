@@ -74,3 +74,13 @@ export const restoreDepartment = asyncHandler(async (req, res) => {
     data: department,
   });
 });
+
+export const getDepartmentStats = asyncHandler(async (req, res) => {
+  const stats = await departmentService.getDepartmentStats();
+
+  res.json({
+    success: true,
+    message: "Department statistics retrieved successfully",
+    data: stats,
+  });
+});

@@ -10,15 +10,51 @@ import checkDuplicate from "../utils/checkDuplicate.js";
 import softDelete from "../utils/softDelete.js";
 import restoreEntity from "../utils/restoreEntity.js";
 
+// export const createDepartment = async (data) => {
+//   const { name, code, facultyId, hod, description } = data;
+
+//   await checkDuplicate({
+//     table: "departments",
+//     conditions: {
+//       code,
+//     },
+//     excludeId: id,
+//     message: "Department already exists",
+//   });
+
+//   await ensureActive({
+//     table: "faculties",
+//     id: facultyId,
+//     message: "Faculty not found",
+//   });
+//   const result = await pool.query(
+//     `
+//     INSERT INTO departments
+//     (
+//       name,
+//       code,
+//       facultyid,
+//       hod,
+//       description
+//     )
+//     VALUES ($1,$2,$3,$4,$5)
+//     RETURNING id
+//     `,
+//     [name, code, facultyId, hod, description],
+//   );
+
+//   return getDepartmentById(result.rows[0].id);
+// };
+
 export const createDepartment = async (data) => {
   const { name, code, facultyId, hod, description } = data;
 
+  // Check for duplicate code without excludeId
   await checkDuplicate({
     table: "departments",
     conditions: {
       code,
     },
-    excludeId: id,
     message: "Department already exists",
   });
 
@@ -27,6 +63,7 @@ export const createDepartment = async (data) => {
     id: facultyId,
     message: "Faculty not found",
   });
+
   const result = await pool.query(
     `
     INSERT INTO departments
@@ -237,4 +274,16 @@ export const restoreDepartment = async (id) => {
   await restoreEntity("departments", id, "Department not found");
 
   return getDepartmentById(id);
+};
+
+export const getDepartmentStats = async () => {
+  const result = await pool.query(`
+    SELECT
+      (SELECT COUNT(*) FROM departments) AS total_departments,
+      (SELECT COUNT(*) FROM departments WHERE isactive = true) AS active_departments,
+      (SELECT COUNT(*) FROM students WHERE isactive = true) AS total_students,
+      (SELECT COUNT(*) FROM courses WHERE isactive = true) AS total_courses
+  `);
+
+  return result.rows[0];
 };
