@@ -33,9 +33,10 @@ export const createSemester = async (data) => {
       sessionid,
       name,
       startdate,
-      enddate
+      enddate,
+      iscurrent
     )
-    VALUES ($1,$2,$3,$4)
+    VALUES ($1, $2, $3, $4, false)
     RETURNING id
     `,
     [sessionId, name, startDate, endDate],
@@ -225,41 +226,28 @@ export const setCurrentSemester = async (id) => {
 
   try {
     await client.query("BEGIN");
+
     await ensureActive({
       table: "semesters",
       id,
       message: "Semester not found",
     });
-    const semester = await client.query(
-      `
-  SELECT sessionid
-  FROM semesters
-  WHERE id = $1
-  `,
-      [id],
-    );
 
-    if (!semester.rows.length) {
-      throw apiError(404, "Semester not found");
-    }
-
-    const { sessionid: sessionId } = semester.rows[0];
-    await client.query(
-      `
+    // 1. Remove the 'current' status from ALL semesters globally, regardless of session
+    await client.query(`
       UPDATE semesters
       SET iscurrent = false
-      WHERE sessionid = $1
-      `,
-      [sessionId],
-    );
+    `);
 
-    await client.query(
+    // 2. Set the newly selected semester as the one and only current semester
+    const result = await client.query(
       `
       UPDATE semesters
       SET
         iscurrent = true,
         updatedat = CURRENT_TIMESTAMP
       WHERE id = $1
+      RETURNING *
       `,
       [id],
     );

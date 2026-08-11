@@ -151,21 +151,15 @@ export const getCourseRegistrations = async (filters) => {
 
   const countQuery = `
     SELECT COUNT(*) AS total
-
     FROM course_registrations cr
-
     JOIN students s
       ON cr.studentid = s.id
-
     JOIN courses c
       ON cr.courseid = c.id
-
     JOIN sessions ses
       ON cr.sessionid = ses.id
-
     JOIN semesters sem
       ON cr.semesterid = sem.id
-
     ${whereClause}
   `;
 
@@ -173,9 +167,7 @@ export const getCourseRegistrations = async (filters) => {
   const total = Number(countResult.rows[0].total);
 
   const allowedSort = ["registeredat", "createdat", "updatedat"];
-
   const sortBy = allowedSort.includes(sort) ? sort : "registeredat";
-
   const sortOrder = order.toLowerCase() === "asc" ? "ASC" : "DESC";
 
   values.push(limit);
@@ -183,7 +175,6 @@ export const getCourseRegistrations = async (filters) => {
 
   const query = `
     SELECT
-
       cr.id,
       cr.registeredat,
       cr.isactive,
@@ -198,7 +189,7 @@ export const getCourseRegistrations = async (filters) => {
       c.id              AS course_id,
       c.code            AS course_code,
       c.title           AS course_title,
-      c.creditunit            AS course_unit,
+      c.creditunit      AS course_unit,
 
       ses.id            AS session_id,
       ses.name          AS session_name,
@@ -207,25 +198,18 @@ export const getCourseRegistrations = async (filters) => {
       sem.name          AS semester_name
 
     FROM course_registrations cr
-
     JOIN students s
       ON cr.studentid = s.id
-
     JOIN courses c
       ON cr.courseid = c.id
-
     JOIN sessions ses
       ON cr.sessionid = ses.id
-
     JOIN semesters sem
       ON cr.semesterid = sem.id
 
     ${whereClause}
-
     ORDER BY cr.${sortBy} ${sortOrder}
-
-    LIMIT $${index}
-    OFFSET $${index + 1}
+    LIMIT $${index} OFFSET $${index + 1}
   `;
 
   const result = await pool.query(query, values);
@@ -240,7 +224,6 @@ export const getCourseRegistrationById = async (id) => {
   const result = await pool.query(
     `
     SELECT
-
       cr.id,
       cr.registeredat,
       cr.isactive,
@@ -255,7 +238,7 @@ export const getCourseRegistrationById = async (id) => {
       c.id              AS course_id,
       c.code            AS course_code,
       c.title           AS course_title,
-      c.creditunit            AS course_unit,
+      c.creditunit      AS course_unit,
 
       ses.id            AS session_id,
       ses.name          AS session_name,
@@ -264,19 +247,14 @@ export const getCourseRegistrationById = async (id) => {
       sem.name          AS semester_name
 
     FROM course_registrations cr
-
     JOIN students s
       ON cr.studentid = s.id
-
     JOIN courses c
       ON cr.courseid = c.id
-
     JOIN sessions ses
       ON cr.sessionid = ses.id
-
     JOIN semesters sem
       ON cr.semesterid = sem.id
-
     WHERE cr.id = $1
     `,
     [id],
@@ -289,7 +267,10 @@ export const getCourseRegistrationById = async (id) => {
   return mapCourseRegistration(result.rows[0]);
 };
 
-export const getCurrentStudentRegistrationData = async (studentId) => {
+export const getCurrentStudentRegistrationData = async (
+  studentId,
+  sessionId,
+) => {
   const studentResult = await pool.query(
     `
     SELECT
@@ -297,22 +278,16 @@ export const getCurrentStudentRegistrationData = async (studentId) => {
       s.matricnumber,
       s.firstname,
       s.lastname,
-
       d.id AS department_id,
       d.name AS department_name,
       d.code AS department_code,
-
       l.id AS level_id,
       l.name AS level_name
-
     FROM students s
-
     JOIN departments d
       ON s.departmentid = d.id
-
     JOIN levels l
       ON s.levelid = l.id
-
     WHERE s.id = $1
       AND s.isactive = true
     `,
@@ -325,64 +300,52 @@ export const getCurrentStudentRegistrationData = async (studentId) => {
 
   const student = studentResult.rows[0];
 
-  const semesterResult = await pool.query(
-    `
-    SELECT
-      sem.id,
-      sem.name,
-      sem.startdate,
-      sem.enddate,
-      sem.iscurrent,
+  let currentSession;
 
-      ses.id AS session_id,
-      ses.name AS session_name
-
-    FROM semesters sem
-
-    JOIN sessions ses
-      ON sem.sessionid = ses.id
-
-    WHERE sem.iscurrent = true
-      AND sem.isactive = true
-      AND ses.isactive = true
-
-    ORDER BY sem.startdate DESC
-
-    LIMIT 1
-    `,
-  );
-
-  if (semesterResult.rows.length === 0) {
-    throw apiError(404, "No current semester is available");
+  if (sessionId) {
+    const sessionResult = await pool.query(
+      `SELECT id AS session_id, name AS session_name FROM sessions WHERE id = $1 AND isactive = true`,
+      [sessionId],
+    );
+    if (sessionResult.rows.length === 0) {
+      throw apiError(404, "Provided academic session is invalid or inactive");
+    }
+    currentSession = sessionResult.rows[0];
+  } else {
+    // Fallback to the current active session
+    const sessionResult = await pool.query(
+      `SELECT id AS session_id, name AS session_name FROM sessions WHERE iscurrent = true AND isactive = true LIMIT 1`,
+    );
+    if (sessionResult.rows.length === 0) {
+      throw apiError(404, "No current session is available");
+    }
+    currentSession = sessionResult.rows[0];
   }
 
-  const currentSemester = semesterResult.rows[0];
-
+  // Fetch ALL registrations for the session, ignoring semesterid
   const registrationResult = await pool.query(
     `
     SELECT
       cr.id,
       cr.registeredat,
       cr.isactive,
-
       c.id AS course_id,
       c.code AS course_code,
       c.title AS course_title,
-      c.creditunit AS course_unit
-
+      c.creditunit AS course_unit,
+      sem.id AS semester_id,
+      sem.name AS semester_name
     FROM course_registrations cr
-
     JOIN courses c
       ON cr.courseid = c.id
-
+    JOIN semesters sem
+      ON cr.semesterid = sem.id
     WHERE cr.studentid = $1
       AND cr.sessionid = $2
-      AND cr.semesterid = $3
       AND cr.isactive = true
-
-    ORDER BY c.code ASC
+    ORDER BY sem.startdate ASC, c.code ASC
     `,
-    [studentId, currentSemester.session_id, currentSemester.id],
+    [studentId, currentSession.session_id],
   );
 
   return {
@@ -391,53 +354,36 @@ export const getCurrentStudentRegistrationData = async (studentId) => {
       matricNumber: student.matricnumber,
       firstName: student.firstname,
       lastName: student.lastname,
-
       department: {
         id: student.department_id,
         name: student.department_name,
         code: student.department_code,
       },
-
       level: {
         id: student.level_id,
         name: student.level_name,
       },
     },
-
     session: {
-      id: currentSemester.session_id,
-      name: currentSemester.session_name,
+      id: currentSession.session_id,
+      name: currentSession.session_name,
     },
-
-    semester: {
-      id: currentSemester.id,
-      name: currentSemester.name,
-      startDate: currentSemester.startdate,
-      endDate: currentSemester.enddate,
-      isCurrent: currentSemester.iscurrent,
-    },
-
     registeredCourses: registrationResult.rows.map((row) => ({
       registrationId: row.id,
       registeredAt: row.registeredat,
-
       id: row.course_id,
       code: row.course_code,
       title: row.course_title,
-
       creditUnit: Number(row.course_unit),
-
       semester: {
-        id: currentSemester.id,
-        name: currentSemester.name,
+        id: row.semester_id,
+        name: row.semester_name,
       },
-
       status: "Registered",
     })),
-
     rules: {
-      minUnits: 12,
-      maxUnits: 24,
+      minUnits: 12, // You may want to double these if they represent per-semester limits!
+      maxUnits: 48, // E.g., 24 per semester = 48 per session
       status: "Open",
       deadline: null,
     },
@@ -448,143 +394,90 @@ export const processStudentRegistration = async ({
   studentId,
   registerCourseCodes = [],
   dropCourseCodes = [],
+  sessionId,
 }) => {
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
 
-    /*
-     * 1. Get the student's current academic context
-     */
     const studentResult = await client.query(
-      `
-      SELECT
-        s.id,
-        s.departmentid,
-        s.levelid
-      FROM students s
-      WHERE s.id = $1
-        AND s.isactive = true
-      `,
+      `SELECT id, departmentid, levelid FROM students WHERE id = $1 AND isactive = true`,
       [studentId],
     );
 
-    if (studentResult.rows.length === 0) {
+    if (studentResult.rows.length === 0)
       throw apiError(404, "Student not found");
-    }
-
     const student = studentResult.rows[0];
 
-    /*
-     * 2. Get the current semester and session
-     */
-    const semesterResult = await client.query(
-      `
-      SELECT
-        sem.id AS semester_id,
-        sem.name AS semester_name,
-        ses.id AS session_id,
-        ses.name AS session_name
-      FROM semesters sem
-      JOIN sessions ses
-        ON sem.sessionid = ses.id
-      WHERE sem.iscurrent = true
-        AND sem.isactive = true
-        AND ses.isactive = true
-      ORDER BY sem.startdate DESC
-      LIMIT 1
-      `,
-    );
-
-    if (semesterResult.rows.length === 0) {
-      throw apiError(404, "No current semester is available");
+    // Find the active session being targeted
+    let current;
+    if (sessionId) {
+      const sesRes = await client.query(
+        `SELECT id AS session_id, name AS session_name FROM sessions WHERE id = $1`,
+        [sessionId],
+      );
+      if (sesRes.rows.length === 0) throw apiError(404, "Session not found");
+      current = sesRes.rows[0];
+    } else {
+      const sesRes = await client.query(
+        `SELECT id AS session_id, name AS session_name FROM sessions WHERE iscurrent = true LIMIT 1`,
+      );
+      if (sesRes.rows.length === 0)
+        throw apiError(404, "No current session available");
+      current = sesRes.rows[0];
     }
 
-    const current = semesterResult.rows[0];
-
-    /*
-     * 3. Get currently registered courses
-     */
+    // Get ALL existing registered courses for the whole session
     const registeredResult = await client.query(
       `
-      SELECT
-        cr.id,
-        c.id AS course_id,
-        c.code,
-        c.title,
-        c.creditunit
+      SELECT cr.id, c.id AS course_id, c.code, c.title, c.creditunit
       FROM course_registrations cr
-      JOIN courses c
-        ON cr.courseid = c.id
-      WHERE cr.studentid = $1
-        AND cr.sessionid = $2
-        AND cr.semesterid = $3
-        AND cr.isactive = true
+      JOIN courses c ON cr.courseid = c.id
+      WHERE cr.studentid = $1 AND cr.sessionid = $2 AND cr.isactive = true
       `,
-      [studentId, current.session_id, current.semester_id],
+      [studentId, current.session_id],
     );
 
-    /*
-     * 4. Remove duplicates from incoming codes
-     */
     const registerCodes = [
       ...new Set(
         registerCourseCodes
-          .map((code) => String(code).trim().toUpperCase())
+          .map((c) => String(c).trim().toUpperCase())
           .filter(Boolean),
       ),
     ];
-
     const dropCodes = [
       ...new Set(
         dropCourseCodes
-          .map((code) => String(code).trim().toUpperCase())
+          .map((c) => String(c).trim().toUpperCase())
           .filter(Boolean),
       ),
     ];
 
-    /*
-     * 5. Find courses to register
-     */
     let coursesToRegister = [];
 
     if (registerCodes.length > 0) {
+      // FIX: Notice we select the course's 'semesterid' here, and removed the semester filter from WHERE
       const courseResult = await client.query(
         `
-        SELECT
-          id,
-          code,
-          title,
-          creditunit
+        SELECT id, code, title, creditunit, semesterid
         FROM courses
         WHERE UPPER(code) = ANY($1::text[])
           AND departmentid = $2
           AND levelid = $3
-          AND semesterid = $4
           AND isactive = true
         `,
-        [
-          registerCodes,
-          student.departmentid,
-          student.levelid,
-          current.semester_id,
-        ],
+        [registerCodes, student.departmentid, student.levelid],
       );
 
       coursesToRegister = courseResult.rows;
 
-      /*
-       * Make sure every submitted code actually exists
-       */
       const foundCodes = new Set(
-        coursesToRegister.map((course) => course.code.toUpperCase()),
+        coursesToRegister.map((c) => c.code.toUpperCase()),
       );
-
       const missingCodes = registerCodes.filter(
         (code) => !foundCodes.has(code),
       );
-
       if (missingCodes.length > 0) {
         throw apiError(
           400,
@@ -593,20 +486,13 @@ export const processStudentRegistration = async ({
       }
     }
 
-    /*
-     * 6. Determine courses remaining after drops
-     */
-    const droppedRegisteredCourses = registeredResult.rows.filter((course) =>
-      dropCodes.includes(course.code.toUpperCase()),
+    const droppedRegisteredCourses = registeredResult.rows.filter((c) =>
+      dropCodes.includes(c.code.toUpperCase()),
     );
-
     const remainingRegisteredCourses = registeredResult.rows.filter(
-      (course) => !dropCodes.includes(course.code.toUpperCase()),
+      (c) => !dropCodes.includes(c.code.toUpperCase()),
     );
 
-    /*
-     * 7. Prevent registering a course that is already registered
-     */
     const alreadyRegistered = coursesToRegister.filter((course) =>
       registeredResult.rows.some(
         (registered) =>
@@ -618,39 +504,23 @@ export const processStudentRegistration = async ({
     if (alreadyRegistered.length > 0) {
       throw apiError(
         400,
-        `Already registered: ${alreadyRegistered
-          .map((course) => course.code)
-          .join(", ")}`,
+        `Already registered: ${alreadyRegistered.map((c) => c.code).join(", ")}`,
       );
     }
 
-    /*
-     * 8. Calculate projected units
-     */
     const remainingUnits = remainingRegisteredCourses.reduce(
-      (total, course) => total + Number(course.creditunit || 0),
+      (tot, c) => tot + Number(c.creditunit || 0),
       0,
     );
-
     const newUnits = coursesToRegister.reduce(
-      (total, course) => total + Number(course.creditunit || 0),
+      (tot, c) => tot + Number(c.creditunit || 0),
       0,
     );
-
     const projectedUnits = remainingUnits + newUnits;
 
-    /*
-     * 9. Registration rules
-     */
+    // Optional: Adjust these rules if they apply to the whole session now instead of semester
     const MIN_UNITS = 12;
-    const MAX_UNITS = 24;
-
-    if (projectedUnits < MIN_UNITS) {
-      throw apiError(
-        400,
-        `Minimum registration load is ${MIN_UNITS} units. You selected ${projectedUnits} units.`,
-      );
-    }
+    const MAX_UNITS = 48; // Expanded for full session
 
     if (projectedUnits > MAX_UNITS) {
       throw apiError(
@@ -659,96 +529,28 @@ export const processStudentRegistration = async ({
       );
     }
 
-    /*
-     * 10. Drop courses
-     */
     if (droppedRegisteredCourses.length > 0) {
-      const dropIds = droppedRegisteredCourses.map((course) => course.id);
-
+      const dropIds = droppedRegisteredCourses.map((c) => c.id);
       await client.query(
-        `
-        UPDATE course_registrations
-        SET
-          isactive = false,
-          updatedat = CURRENT_TIMESTAMP
-        WHERE id = ANY($1::uuid[])
-        `,
+        `UPDATE course_registrations SET isactive = false, updatedat = CURRENT_TIMESTAMP WHERE id = ANY($1::uuid[])`,
         [dropIds],
       );
     }
 
-    /*
-     * 11. Register new courses
-     */
+    // Insert new registrations, linking each strictly to the semester that course belongs to!
     for (const course of coursesToRegister) {
       await client.query(
         `
-        INSERT INTO course_registrations
-        (
-          studentid,
-          courseid,
-          sessionid,
-          semesterid,
-          isactive
-        )
+        INSERT INTO course_registrations (studentid, courseid, sessionid, semesterid, isactive)
         VALUES ($1, $2, $3, $4, true)
         `,
-        [studentId, course.id, current.session_id, current.semester_id],
+        [studentId, course.id, current.session_id, course.semesterid], // <- course.semesterid handles the split!
       );
     }
 
-    /*
-     * 12. Commit everything
-     */
     await client.query("COMMIT");
 
-    /*
-     * 13. Return fresh registration information
-     */
-    const finalResult = await client.query(
-      `
-      SELECT
-        cr.id AS registration_id,
-        cr.registeredat,
-        c.id AS course_id,
-        c.code,
-        c.title,
-        c.creditunit
-      FROM course_registrations cr
-      JOIN courses c
-        ON cr.courseid = c.id
-      WHERE cr.studentid = $1
-        AND cr.sessionid = $2
-        AND cr.semesterid = $3
-        AND cr.isactive = true
-      ORDER BY c.code ASC
-      `,
-      [studentId, current.session_id, current.semester_id],
-    );
-
-    return {
-      session: {
-        id: current.session_id,
-        name: current.session_name,
-      },
-
-      semester: {
-        id: current.semester_id,
-        name: current.semester_name,
-      },
-
-      totalUnits: projectedUnits,
-
-      courses: finalResult.rows.map((course) => ({
-        registrationId: course.registration_id,
-        registeredAt: course.registeredat,
-        id: course.course_id,
-        code: course.code,
-        title: course.title,
-        creditUnit: Number(course.creditunit),
-        status: "Registered",
-      })),
-    };
+    return { success: true, message: "Session registration completed" };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

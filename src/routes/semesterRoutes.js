@@ -23,26 +23,27 @@ import {
 const router = express.Router();
 
 router.use(authenticate);
-router.use(authorize("admin"));
 
 router.get("/", getAll);
-
 router.get("/:id", validateUUID(), getOne);
 
-router.post("/", ...createSemesterValidator, validate, create);
-
+router.post(
+  "/",
+  authorize("admin"),
+  ...createSemesterValidator,
+  validate,
+  create,
+);
 router.put(
   "/:id",
+  authorize("admin"),
   validateUUID(),
   ...updateSemesterValidator,
   validate,
   update,
 );
-
-router.patch("/:id/current", validateUUID(), makeCurrent);
-
-router.patch("/:id/deactivate", validateUUID(), deactivate);
-
-router.patch("/:id/restore", validateUUID(), restore);
+router.patch("/:id/current", authorize("admin"), validateUUID(), makeCurrent);
+router.patch("/:id/deactivate", authorize("admin"), validateUUID(), deactivate);
+router.patch("/:id/restore", authorize("admin"), validateUUID(), restore);
 
 export default router;
