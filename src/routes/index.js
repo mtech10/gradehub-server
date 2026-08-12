@@ -15,7 +15,7 @@ import dashboardRoutes from "./dashboardRoutes.js";
 import profileRoutes from "./profileRoutes.js";
 import notificationRoutes from "./notificationRoutes.js";
 import optionsRoutes from "./optionsRoutes.js";
-
+import promotionRuleRoutes from "./promotionRuleRoutes.js";
 const router = express.Router();
 
 // Root Route
@@ -46,5 +46,6 @@ router.use("/transcripts", transcriptRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/profile", profileRoutes);
 router.use("/notifications", notificationRoutes);
+router.use("/promotion-rules", promotionRuleRoutes);
 router.use("/", optionsRoutes);
 export default router;

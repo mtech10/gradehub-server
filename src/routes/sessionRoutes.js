@@ -18,6 +18,7 @@ import {
   makeCurrent,
   deactivate,
   restore,
+  promote, // <-- 1. Imported the promote controller
 } from "../controllers/sessionController.js";
 
 const router = express.Router();
@@ -48,5 +49,8 @@ router.put(
 router.patch("/:id/current", authorize("admin"), validateUUID(), makeCurrent);
 router.patch("/:id/deactivate", authorize("admin"), validateUUID(), deactivate);
 router.patch("/:id/restore", authorize("admin"), validateUUID(), restore);
+
+// --- 2. NEW PROMOTION ROUTE ---
+router.post("/:id/promote", authorize("admin"), validateUUID(), promote);
 
 export default router;

@@ -24,6 +24,8 @@ router.get(
   profileController.getStudentProfile,
 );
 
+router.get("/admin", authorize("admin"), profileController.getAdminProfile);
+
 router.put(
   "/student",
   authorize("student"),
@@ -39,8 +41,6 @@ router.patch(
   validate,
   profileController.updateStudentPhoto,
 );
-
-router.get("/admin", authorize("admin"), profileController.getAdminProfile);
 
 router.put(
   "/admin",
