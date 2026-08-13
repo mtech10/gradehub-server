@@ -66,52 +66,62 @@ export const registerAdmin = async (data) => {
 };
 
 export const login = async (email, password) => {
-  const result = await pool.query(
-    `
-    SELECT *
-    FROM users
-    WHERE email = $1
-    `,
+  const adminResult = await pool.query(`SELECT * FROM users WHERE email = $1`, [
+    email,
+  ]);
+
+  if (adminResult.rows.length > 0) {
+    const user = adminResult.rows[0];
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) throw apiError(401, "Invalid email or password");
+
+    if (!user.isactive) throw apiError(403, "Account has been deactivated");
+
+    const token = generateToken({ id: user.id, role: user.role });
+
+    await pool.query(
+      `UPDATE admins SET lastlogin = CURRENT_TIMESTAMP WHERE userid = $1`,
+      [user.id],
+    );
+
+    return {
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      },
+    };
+  }
+
+  const studentResult = await pool.query(
+    `SELECT * FROM students WHERE email = $1`,
     [email],
   );
 
-  if (result.rows.length === 0) {
-    throw apiError(401, "Invalid email or password");
+  if (studentResult.rows.length > 0) {
+    const student = studentResult.rows[0];
+
+    if (password !== student.matricnumber) {
+      throw apiError(401, "Invalid email or matric number");
+    }
+
+    if (!student.isactive)
+      throw apiError(403, "Student account has been deactivated");
+
+    const token = generateToken({ id: student.id, role: "student" });
+
+    return {
+      token,
+      user: {
+        id: student.id,
+        email: student.email,
+        role: "student",
+        name: `${student.firstname} ${student.lastname}`,
+      },
+    };
   }
 
-  const user = result.rows[0];
-
-  const isMatch = await bcrypt.compare(password, user.password);
-
-  if (!isMatch) {
-    throw apiError(401, "Invalid email or password");
-  }
-
-  if (!user.isactive) {
-    throw apiError(403, "Account has been deactivated");
-  }
-
-  const token = generateToken({
-    id: user.id,
-    role: user.role,
-  });
-
-  await pool.query(
-    `
-  UPDATE admins
-  SET
-    lastlogin = CURRENT_TIMESTAMP
-  WHERE userid = $1
-  `,
-    [user.id],
-  );
-
-  return {
-    token,
-    user: {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-    },
-  };
+  throw apiError(401, "Invalid email or password");
 };

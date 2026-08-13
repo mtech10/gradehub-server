@@ -44,5 +44,5 @@ router.patch(
 );
 
 router.patch("/:id/restore", validateUUID(), studentController.restoreStudent);
-
+router.delete("/:id", authenticate, studentController.deleteStudent);
 export default router;

@@ -15,7 +15,6 @@ export const getStudentProfile = async (studentId) => {
   const result = await pool.query(
     `
     SELECT
-
       s.id AS student_id,
       s.matricnumber,
       s.firstname,
@@ -25,8 +24,7 @@ export const getStudentProfile = async (studentId) => {
       s.phone,
       s.photo,
       s.admissionyear,
-
-      u.email,
+      s.email,       -- FIXED: Changed from u.email to s.email
 
       d.id AS department_id,
       d.name AS department_name,
@@ -41,9 +39,8 @@ export const getStudentProfile = async (studentId) => {
       ses.name AS session_name
 
     FROM students s
-
-    JOIN users u
-      ON u.studentid = s.id
+    
+    -- REMOVED: JOIN users u ON u.studentid = s.id
 
     JOIN departments d
       ON s.departmentid = d.id

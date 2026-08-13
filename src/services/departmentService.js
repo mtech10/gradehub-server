@@ -85,14 +85,13 @@ export const createDepartment = async (data) => {
 
 export const getDepartments = async (filters) => {
   const {
-    page = 1,
-    limit = 10,
     search = "",
     status = "active",
     sort = "name",
     order = "asc",
   } = filters;
-
+  const page = parseInt(filters.page, 10) || 1;
+  const limit = parseInt(filters.limit, 10) || 10;
   const offset = (page - 1) * limit;
 
   let whereClause = "";

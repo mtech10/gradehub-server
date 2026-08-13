@@ -98,3 +98,12 @@ export const getStudentStats = async (req, res, next) => {
     next(error);
   }
 };
+
+export const deleteStudent = async (req, res, next) => {
+  try {
+    const student = await studentService.deactivateStudent(req.params.id);
+    return response(res, student, "Student deleted successfully");
+  } catch (error) {
+    next(error);
+  }
+};

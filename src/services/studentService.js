@@ -2,10 +2,8 @@ import pool from "../config/database.js";
 
 import { buildPagination } from "../utils/pagination.js";
 import mapStudent from "../utils/mappers/studentMapper.js";
-
 import checkDuplicate from "../utils/checkDuplicate.js";
 import ensureActive from "../utils/ensureActive.js";
-
 import softDelete from "../utils/softDelete.js";
 import restoreEntity from "../utils/restoreEntity.js";
 
@@ -28,18 +26,14 @@ export const createStudent = async (data) => {
 
   await checkDuplicate({
     table: "students",
-    conditions: {
-      matricnumber: matricNumber,
-    },
+    conditions: { matricnumber: matricNumber },
     message: "Matric number already exists",
   });
 
   if (email) {
     await checkDuplicate({
       table: "students",
-      conditions: {
-        email,
-      },
+      conditions: { email },
       message: "Email already exists",
     });
   }
@@ -66,19 +60,9 @@ export const createStudent = async (data) => {
     `
     INSERT INTO students
     (
-      matricnumber,
-      firstname,
-      middlename,
-      lastname,
-      gender,
-      email,
-      phone,
-      dateofbirth,
-      admissionyear,
-      departmentid,
-      levelid,
-      sessionid,
-      photo
+      matricnumber, firstname, middlename, lastname, gender, 
+      email, phone, dateofbirth, admissionyear, departmentid, 
+      levelid, sessionid, photo
     )
     VALUES
     (
@@ -105,12 +89,12 @@ export const createStudent = async (data) => {
 
   return await getStudentById(result.rows[0].id);
 };
-
-// RESTORED: The getStudents function that handles your list view!
 export const getStudents = async (filters) => {
+  // FIXED: Force page and limit to be integers so math works correctly
+  const page = parseInt(filters.page, 10) || 1;
+  const limit = parseInt(filters.limit, 10) || 10;
+
   const {
-    page = 1,
-    limit = 10,
     search = "",
     status = "active",
     departmentId,
@@ -122,6 +106,7 @@ export const getStudents = async (filters) => {
 
   const offset = (page - 1) * limit;
 
+  // ... (Keep the rest of your whereClause building exactly the same) ...
   let whereClause = "";
   const values = [];
   let index = 1;
@@ -157,14 +142,7 @@ export const getStudents = async (filters) => {
   }
 
   if (search) {
-    const searchClause = `
-      (
-        s.firstname ILIKE $${index}
-        OR s.lastname ILIKE $${index}
-        OR s.matricnumber ILIKE $${index}
-        OR s.email ILIKE $${index}
-      )
-    `;
+    const searchClause = `(s.firstname ILIKE $${index} OR s.lastname ILIKE $${index} OR s.matricnumber ILIKE $${index} OR s.email ILIKE $${index})`;
     values.push(`%${search}%`);
     whereClause += whereClause
       ? ` AND ${searchClause}`
@@ -172,12 +150,7 @@ export const getStudents = async (filters) => {
     index++;
   }
 
-  const countQuery = `
-    SELECT COUNT(*) AS total
-    FROM students s
-    ${whereClause}
-  `;
-
+  const countQuery = `SELECT COUNT(*) AS total FROM students s ${whereClause}`;
   const countResult = await pool.query(countQuery, values);
   const total = Number(countResult.rows[0].total);
 
@@ -189,29 +162,15 @@ export const getStudents = async (filters) => {
   values.push(offset);
 
   const result = await pool.query(
-    `
-    SELECT
-      s.*,
-
-      d.id   AS department_id,
-      d.name AS department_name,
-      d.code AS department_code,
-
-      l.id   AS level_id,
-      l.name AS level_name,
-
-      ses.id   AS session_id,
-      ses.name AS session_name
-
+    `SELECT s.*, d.id AS department_id, d.name AS department_name, d.code AS department_code,
+      l.id AS level_id, l.name AS level_name, ses.id AS session_id, ses.name AS session_name
     FROM students s
     JOIN departments d ON s.departmentid = d.id
     JOIN levels l ON s.levelid = l.id
     JOIN sessions ses ON s.sessionid = ses.id
     ${whereClause}
     ORDER BY s.${sortBy} ${sortOrder}
-    LIMIT $${index}
-    OFFSET $${index + 1}
-    `,
+    LIMIT $${index} OFFSET $${index + 1}`,
     values,
   );
 

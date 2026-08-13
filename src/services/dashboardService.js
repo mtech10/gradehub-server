@@ -357,7 +357,7 @@ export const getStudentDashboard = async (user) => {
     pool.query(
       `
       SELECT
-
+          r.id,
           r.total_score,
           r.grade,
 
@@ -369,11 +369,16 @@ export const getStudentDashboard = async (user) => {
 
       JOIN courses c
           ON r.courseid = c.id
+          
+      -- ADDED: Join semesters so we can filter by the active one
+      JOIN semesters sem 
+          ON r.semesterid = sem.id
 
       WHERE
           r.studentid = $1
       AND r.isapproved = true
       AND r.isactive = true
+      AND sem.iscurrent = true -- ADDED: Only fetch current session results
 
       ORDER BY r.createdat DESC
 
@@ -451,13 +456,13 @@ export const getStudentDashboard = async (user) => {
     },
 
     recentResults: recentResults.rows.map((row) => ({
-      course: {
-        code: row.code,
-        title: row.title,
-        creditUnit: Number(row.creditunit),
-      },
+      id: row.id,
+      code: row.code,
+      course: row.title,
+      unit: Number(row.creditunit),
       score: Number(row.total_score),
       grade: row.grade,
+      status: "Approved",
     })),
 
     currentCourses: currentCourses.rows.map((course) => ({
