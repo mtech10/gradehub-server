@@ -1,6 +1,7 @@
 import * as studentService from "../services/studentService.js";
 import { response } from "../utils/response.js";
 import pool from "../config/database.js";
+import xlsx from "xlsx";
 
 export const createStudent = async (req, res, next) => {
   try {
@@ -105,5 +106,107 @@ export const deleteStudent = async (req, res, next) => {
     return response(res, student, "Student deleted successfully");
   } catch (error) {
     next(error);
+  }
+};
+
+export const uploadBulkStudents = async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: "No file uploaded." });
+  }
+
+  const { departmentId, levelId } = req.body;
+
+  if (!departmentId || !levelId) {
+    return res.status(400).json({
+      message: "Please select both a Department and a Level before uploading.",
+    });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    // 1. Automatically fetch the current active session ID (using 'isactive' without the underscore)
+    const sessionResult = await client.query(
+      `SELECT id FROM sessions WHERE isactive = true LIMIT 1`,
+    );
+
+    let sessionId = sessionResult.rows[0]?.id;
+    if (!sessionId) {
+      const fallbackSession = await client.query(
+        `SELECT id FROM sessions ORDER BY created_at DESC LIMIT 1`,
+      );
+      sessionId = fallbackSession.rows[0]?.id;
+    }
+
+    if (!sessionId) {
+      return res.status(400).json({
+        message: "No academic session found. Please create a session first.",
+      });
+    }
+    const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    const rawData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+    if (rawData.length === 0) {
+      return res.status(400).json({ message: "The uploaded file is empty." });
+    }
+
+    let successCount = 0;
+    await client.query("BEGIN");
+    const currentYear = new Date().getFullYear();
+
+    for (const row of rawData) {
+      const firstname = row["First Name"];
+      const lastname = row["Last Name"];
+      const matricnumber = row["Matric Number"];
+      const email = row["Email"];
+
+      if (!firstname || !lastname || !matricnumber) continue;
+
+      const insertQuery = `
+        INSERT INTO students 
+          (firstname, lastname, matricnumber, email, departmentid, levelid, sessionid, admissionyear) 
+        VALUES 
+          ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (matricnumber) 
+        DO UPDATE SET 
+          firstname = EXCLUDED.firstname,
+          lastname = EXCLUDED.lastname,
+          email = EXCLUDED.email,
+          departmentid = EXCLUDED.departmentid,
+          levelid = EXCLUDED.levelid,
+          sessionid = EXCLUDED.sessionid
+        RETURNING id;
+      `;
+
+      await client.query(insertQuery, [
+        firstname,
+        lastname,
+        matricnumber,
+        email || null,
+        departmentId,
+        levelId,
+        sessionId, // Automatically injected active session ID!
+        currentYear,
+      ]);
+      successCount++;
+    }
+
+    await client.query("COMMIT");
+
+    return res.status(200).json({
+      success: true,
+      message: "Bulk upload successful.",
+      count: successCount,
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("Student bulk upload error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to process the uploaded file.",
+    });
+  } finally {
+    client.release();
   }
 };

@@ -322,7 +322,7 @@ export const getCurrentStudentRegistrationData = async (
     currentSession = sessionResult.rows[0];
   }
 
-  // Fetch ALL registrations for the session, ignoring semesterid
+  // Fetch ALL registrations for the session
   const registrationResult = await pool.query(
     `
     SELECT
@@ -333,17 +333,14 @@ export const getCurrentStudentRegistrationData = async (
       c.code AS course_code,
       c.title AS course_title,
       c.creditunit AS course_unit,
-      sem.id AS semester_id,
-      sem.name AS semester_name
+      c.semester -- <-- Just grab the simple text string we created earlier
     FROM course_registrations cr
     JOIN courses c
       ON cr.courseid = c.id
-    JOIN semesters sem
-      ON cr.semesterid = sem.id
     WHERE cr.studentid = $1
       AND cr.sessionid = $2
       AND cr.isactive = true
-    ORDER BY sem.startdate ASC, c.code ASC
+    ORDER BY c.semester ASC, c.code ASC
     `,
     [studentId, currentSession.session_id],
   );
@@ -375,15 +372,12 @@ export const getCurrentStudentRegistrationData = async (
       code: row.course_code,
       title: row.course_title,
       creditUnit: Number(row.course_unit),
-      semester: {
-        id: row.semester_id,
-        name: row.semester_name,
-      },
+      semester: row.semester, // <-- Flattened to a string to match the frontend
       status: "Registered",
     })),
     rules: {
-      minUnits: 12, // You may want to double these if they represent per-semester limits!
-      maxUnits: 48, // E.g., 24 per semester = 48 per session
+      minUnits: 12,
+      maxUnits: 48,
       status: "Open",
       deadline: null,
     },

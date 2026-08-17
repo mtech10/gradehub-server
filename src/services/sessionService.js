@@ -15,16 +15,40 @@ export const createSession = async (data) => {
     message: "Session already exists",
   });
 
-  const result = await pool.query(
-    `
-    INSERT INTO sessions (name, startdate, enddate, iscurrent)
-    VALUES ($1, $2, $3, false)
-    RETURNING *
-    `,
-    [name, startdate, enddate],
-  );
+  const client = await pool.connect();
 
-  return mapSession(result.rows[0]);
+  try {
+    await client.query("BEGIN");
+
+    // 1. Create the new Session
+    const sessionResult = await client.query(
+      `
+      INSERT INTO sessions (name, startdate, enddate, iscurrent)
+      VALUES ($1, $2, $3, false)
+      RETURNING *
+      `,
+      [name, startdate, enddate],
+    );
+
+    const newSession = sessionResult.rows[0];
+
+    // 2. Auto-generate the Semesters for this Session
+    await client.query(
+      `
+      INSERT INTO semesters (name, sessionid, iscurrent) 
+      VALUES ($1, $2, false), ($3, $4, false)
+      `,
+      ["First Semester", newSession.id, "Second Semester", newSession.id],
+    );
+
+    await client.query("COMMIT");
+    return mapSession(newSession);
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 export const getSessions = async (filters) => {
