@@ -1,4 +1,5 @@
 import * as profileService from "../services/profileService.js";
+import { createNotification } from "../services/notificationService.js";
 
 export const getStudentProfile = async (req, res, next) => {
   try {
@@ -35,6 +36,14 @@ export const updateStudentProfile = async (req, res, next) => {
       req.body,
     );
 
+    await createNotification({
+      userId: req.user.id,
+      title: "Profile Updated",
+      message:
+        "Your student profile information has been successfully updated.",
+      category: "system",
+    });
+
     res.json({
       success: true,
       message: "Profile updated successfully",
@@ -52,6 +61,14 @@ export const updateAdminProfile = async (req, res, next) => {
       req.body,
     );
 
+    await createNotification({
+      userId: req.user.id,
+      title: "Profile Updated",
+      message:
+        "Your administrator profile information has been successfully updated.",
+      category: "system",
+    });
+
     res.json({
       success: true,
       message: "Profile updated successfully",
@@ -65,6 +82,14 @@ export const updateAdminProfile = async (req, res, next) => {
 export const updateEmail = async (req, res, next) => {
   try {
     await profileService.updateEmail(req.user.id, req.body.email);
+
+    await createNotification({
+      userId: req.user.id,
+      title: "Email Address Changed",
+      message:
+        "The email address associated with your account was recently updated.",
+      category: "alert",
+    });
 
     res.json({
       success: true,
@@ -83,6 +108,14 @@ export const changePassword = async (req, res, next) => {
       req.body.newPassword,
     );
 
+    await createNotification({
+      userId: req.user.id,
+      title: "Password Changed",
+      message:
+        "Your account password was successfully changed. If you did not do this, please contact support immediately.",
+      category: "alert",
+    });
+
     res.json({
       success: true,
       message: result.message,
@@ -98,6 +131,13 @@ export const updateStudentPhoto = async (req, res, next) => {
       req.user.studentid,
       req.body.photo,
     );
+
+    await createNotification({
+      userId: req.user.id,
+      title: "Profile Photo Updated",
+      message: "Your profile picture has been updated successfully.",
+      category: "system",
+    });
 
     res.json({
       success: true,

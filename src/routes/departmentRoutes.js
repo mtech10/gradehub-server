@@ -13,9 +13,11 @@ import {
 } from "../validators/departmentValidator.js";
 
 import { getDepartmentStats } from "../controllers/departmentController.js";
+import * as registrationRuleController from "../controllers/registrationRuleController.js";
 
 const router = express.Router();
 
+// Your existing top-level middlewares
 router.use(authenticate);
 router.use(authorize("admin"));
 
@@ -34,6 +36,20 @@ router.get(
 );
 
 router.get("/stats", authenticate, authorize("admin"), getDepartmentStats);
+
+router.post(
+  "/registration-rules",
+  authenticate,
+  authorize("admin"),
+  registrationRuleController.saveRule,
+);
+
+router.get(
+  "/registration-rules",
+  authenticate,
+  authorize("admin"),
+  registrationRuleController.getRules,
+);
 
 router.get(
   "/:id",
@@ -67,6 +83,15 @@ router.patch(
   authorize("admin"),
   validateUUID(),
   departmentController.restoreDepartment,
+);
+
+// --- CORRECTED NEW ROUTES ---
+
+router.delete(
+  "/registration-rules/:id",
+  authenticate,
+  authorize("admin"),
+  registrationRuleController.deleteRule,
 );
 
 export default router;

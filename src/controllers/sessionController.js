@@ -6,14 +6,23 @@ import {
   setCurrentSession,
   deactivateSession,
   restoreSession,
-  runSessionPromotion, // <-- 1. Imported the new service
+  runSessionPromotion,
 } from "../services/sessionService.js";
 
 import { response } from "../utils/response.js";
+import { notifyAdmins } from "../services/notificationService.js";
 
 export const create = async (req, res, next) => {
   try {
     const session = await createSession(req.body);
+
+    // Notify admins that a new session was created
+    await notifyAdmins({
+      title: "New Session Created",
+      message: `The academic session ${session.name || ""} has been created and added to the system.`,
+      category: "system",
+    });
+
     return response(res, session, "Session created successfully", 201);
   } catch (error) {
     next(error);
@@ -56,6 +65,14 @@ export const update = async (req, res, next) => {
 export const makeCurrent = async (req, res, next) => {
   try {
     const session = await setCurrentSession(req.params.id);
+
+    // Notify admins that the active session has changed across the platform
+    await notifyAdmins({
+      title: "Active Session Updated",
+      message: `The current academic session has been officially set to ${session.name || "a new session"}.`,
+      category: "system",
+    });
+
     return response(res, session, "Current session updated successfully");
   } catch (error) {
     next(error);
@@ -80,12 +97,19 @@ export const restore = async (req, res, next) => {
   }
 };
 
-// --- 2. NEW PROMOTION CONTROLLER ---
 export const promote = async (req, res, next) => {
   try {
     const result = await runSessionPromotion(req.params.id);
 
-    // Returning result.stats as the data payload, and result.message as the success message
+    // Notify admins that the bulk promotion script has finished running
+    // We can extract the stats right into the message for quick viewing!
+    const { promoted = 0, graduated = 0 } = result.stats || {};
+    await notifyAdmins({
+      title: "Session Promotion Completed",
+      message: `The promotion process finished successfully. Promoted: ${promoted} | Graduated: ${graduated}.`,
+      category: "system",
+    });
+
     return response(res, result.stats, result.message, 200);
   } catch (error) {
     next(error);

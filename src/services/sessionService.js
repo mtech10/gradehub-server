@@ -7,7 +7,15 @@ import softDelete from "../utils/softDelete.js";
 import restoreEntity from "../utils/restoreEntity.js";
 
 export const createSession = async (data) => {
-  const { name, startdate, enddate } = data;
+  const { name } = data;
+
+  // Provide safe fallback dates if the frontend didn't send them
+  const startdate = data.startdate || new Date().toISOString().split("T")[0];
+  const enddate =
+    data.enddate ||
+    new Date(new Date().setFullYear(new Date().getFullYear() + 1))
+      .toISOString()
+      .split("T")[0];
 
   await checkDuplicate({
     table: "sessions",
@@ -32,13 +40,22 @@ export const createSession = async (data) => {
 
     const newSession = sessionResult.rows[0];
 
-    // 2. Auto-generate the Semesters for this Session
+    // 2. Auto-generate the Semesters for this Session WITH the required dates!
     await client.query(
       `
-      INSERT INTO semesters (name, sessionid, iscurrent) 
-      VALUES ($1, $2, false), ($3, $4, false)
+      INSERT INTO semesters (name, sessionid, startdate, enddate, iscurrent) 
+      VALUES ($1, $2, $3, $4, false), ($5, $6, $7, $8, false)
       `,
-      ["First Semester", newSession.id, "Second Semester", newSession.id],
+      [
+        "First Semester",
+        newSession.id,
+        startdate,
+        enddate,
+        "Second Semester",
+        newSession.id,
+        startdate,
+        enddate,
+      ],
     );
 
     await client.query("COMMIT");

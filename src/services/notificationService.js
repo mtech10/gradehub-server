@@ -1,26 +1,14 @@
 import pool from "../config/database.js";
-
 import apiError from "../utils/apiError.js";
-
 import mapNotification from "../utils/mappers/notificationMapper.js";
 
 export const getRecentNotifications = async (userId) => {
   const result = await pool.query(
     `
-    SELECT
-      id,
-      title,
-      message,
-      category,
-      isread,
-      createdat
-
+    SELECT id, title, message, category, isread, createdat
     FROM notifications
-
     WHERE userid = $1
-
     ORDER BY createdat DESC
-
     LIMIT 5
     `,
     [userId],
@@ -34,7 +22,6 @@ export const getNotifications = async (
   { page = 1, limit = 10, category, unread },
 ) => {
   const offset = (page - 1) * limit;
-
   const values = [userId];
   const conditions = ["userid = $1"];
 
@@ -50,20 +37,10 @@ export const getNotifications = async (
   const whereClause = conditions.join(" AND ");
 
   const notificationsQuery = `
-    SELECT
-      id,
-      title,
-      message,
-      category,
-      isread,
-      createdat
-
+    SELECT id, title, message, category, isread, createdat
     FROM notifications
-
     WHERE ${whereClause}
-
     ORDER BY createdat DESC
-
     LIMIT $${values.length + 1}
     OFFSET $${values.length + 2}
   `;
@@ -72,15 +49,12 @@ export const getNotifications = async (
   values.push(offset);
 
   const notifications = await pool.query(notificationsQuery, values);
-
   const countValues = values.slice(0, values.length - 2);
 
   const totalResult = await pool.query(
     `
     SELECT COUNT(*)::int AS total
-
     FROM notifications
-
     WHERE ${whereClause}
     `,
     countValues,
@@ -88,14 +62,10 @@ export const getNotifications = async (
 
   return {
     notifications: notifications.rows.map(mapNotification),
-
     pagination: {
       page,
-
       limit,
-
       total: totalResult.rows[0].total,
-
       hasMore: page * limit < totalResult.rows[0].total,
     },
   };
@@ -106,22 +76,10 @@ export const getNotificationSummary = async (userId) => {
     `
     SELECT
       COUNT(*)::int AS total,
-
-      COUNT(*) FILTER (
-        WHERE isread = false
-      )::int AS unread,
-
-      COUNT(*) FILTER (
-        WHERE createdat >= CURRENT_DATE - INTERVAL '7 days'
-      )::int AS this_week,
-
-      COUNT(*) FILTER (
-        WHERE DATE_TRUNC('month', createdat) =
-              DATE_TRUNC('month', CURRENT_DATE)
-      )::int AS this_month
-
+      COUNT(*) FILTER (WHERE isread = false)::int AS unread,
+      COUNT(*) FILTER (WHERE createdat >= CURRENT_DATE - INTERVAL '7 days')::int AS this_week,
+      COUNT(*) FILTER (WHERE DATE_TRUNC('month', createdat) = DATE_TRUNC('month', CURRENT_DATE))::int AS this_month
     FROM notifications
-
     WHERE userid = $1
     `,
     [userId],
@@ -131,11 +89,8 @@ export const getNotificationSummary = async (userId) => {
 
   return {
     total: Number(summary.total),
-
     unread: Number(summary.unread),
-
     thisWeek: Number(summary.this_week),
-
     thisMonth: Number(summary.this_month),
   };
 };
@@ -144,21 +99,9 @@ export const markNotificationAsRead = async (notificationId, userId) => {
   const result = await pool.query(
     `
     UPDATE notifications
-
-    SET
-      isread = true
-
-    WHERE
-      id = $1
-      AND userid = $2
-
-    RETURNING
-      id,
-      title,
-      message,
-      category,
-      isread,
-      createdat
+    SET isread = true
+    WHERE id = $1 AND userid = $2
+    RETURNING id, title, message, category, isread, createdat
     `,
     [notificationId, userId],
   );
@@ -174,14 +117,8 @@ export const markAllNotificationsAsRead = async (userId) => {
   const result = await pool.query(
     `
     UPDATE notifications
-
-    SET
-      isread = true
-
-    WHERE
-      userid = $1
-      AND isread = false
-
+    SET isread = true
+    WHERE userid = $1 AND isread = false
     RETURNING id
     `,
     [userId],
@@ -197,18 +134,8 @@ export const deleteNotification = async (notificationId, userId) => {
   const result = await pool.query(
     `
     DELETE FROM notifications
-
-    WHERE
-      id = $1
-      AND userid = $2
-
-    RETURNING
-      id,
-      title,
-      message,
-      category,
-      isread,
-      createdat
+    WHERE id = $1 AND userid = $2
+    RETURNING id, title, message, category, isread, createdat
     `,
     [notificationId, userId],
   );
@@ -220,60 +147,72 @@ export const deleteNotification = async (notificationId, userId) => {
   return mapNotification(result.rows[0]);
 };
 
+// --- UPDATED: Universal Create Notification ---
 export const createNotification = async ({
-  studentId,
+  userId, // For direct user notification (e.g., Admins)
+  studentId, // For looking up a student's user account
   title,
   message,
   category,
 }) => {
-  // Find the corresponding user account
-  const userResult = await pool.query(
-    `
-    SELECT id
+  let targetUserId = userId;
 
-    FROM users
+  // Resolve studentId to userId if userId wasn't directly provided
+  if (!targetUserId && studentId) {
+    const userResult = await pool.query(
+      `SELECT id FROM users WHERE studentid = $1 AND isactive = true`,
+      [studentId],
+    );
 
-    WHERE
-      studentid = $1
-      AND isactive = true
-    `,
-    [studentId],
-  );
-
-  if (!userResult.rows.length) {
-    throw apiError(404, "Student user account not found");
+    if (userResult.rows.length > 0) {
+      targetUserId = userResult.rows[0].id;
+    } else {
+      console.warn(
+        `Failed to generate notification: Student user account not found for studentId ${studentId}`,
+      );
+      return null; // Return null safely instead of crashing the main process
+    }
   }
 
-  const userId = userResult.rows[0].id;
+  if (!targetUserId) {
+    console.warn(
+      "Failed to generate notification: No valid userId or studentId provided",
+    );
+    return null;
+  }
 
   const result = await pool.query(
     `
-    INSERT INTO notifications
-    (
-      userid,
-      title,
-      message,
-      category
-    )
-
-    VALUES
-    (
-      $1,
-      $2,
-      $3,
-      $4
-    )
-
-    RETURNING
-      id,
-      title,
-      message,
-      category,
-      isread,
-      createdat
+    INSERT INTO notifications (userid, title, message, category)
+    VALUES ($1, $2, $3, $4)
+    RETURNING id, title, message, category, isread, createdat
     `,
-    [userId, title, message, category],
+    [targetUserId, title, message, category],
   );
 
   return mapNotification(result.rows[0]);
+};
+
+// --- NEW: Helper to notify all admins simultaneously ---
+export const notifyAdmins = async ({ title, message, category }) => {
+  try {
+    // Find all active admins
+    const admins = await pool.query(
+      `SELECT id FROM users WHERE role = 'admin' AND isactive = true`,
+    );
+
+    // Create a notification for each admin concurrently
+    const promises = admins.rows.map((admin) =>
+      createNotification({
+        userId: admin.id,
+        title,
+        message,
+        category,
+      }),
+    );
+
+    return await Promise.all(promises);
+  } catch (error) {
+    console.error("Failed to broadcast admin notifications:", error);
+  }
 };

@@ -2,10 +2,18 @@ import * as studentService from "../services/studentService.js";
 import { response } from "../utils/response.js";
 import pool from "../config/database.js";
 import xlsx from "xlsx";
+import { notifyAdmins } from "../services/notificationService.js";
 
 export const createStudent = async (req, res, next) => {
   try {
     const student = await studentService.createStudent(req.body);
+
+    // Notify admins of the new enrollment
+    await notifyAdmins({
+      title: "New Student Registered",
+      message: `A new student (${req.body.firstname} ${req.body.lastname}) has been manually added to the system.`,
+      category: "system",
+    });
 
     return response(res, student, "Student created successfully", 201);
   } catch (error) {
@@ -69,6 +77,14 @@ export const deactivateStudent = async (req, res, next) => {
   try {
     const student = await studentService.deactivateStudent(req.params.id);
 
+    // Notify admins of the deactivation
+    await notifyAdmins({
+      title: "Student Account Deactivated",
+      message:
+        "A student record has been deactivated and suspended from the system.",
+      category: "alert",
+    });
+
     return response(res, student, "Student deactivated successfully");
   } catch (error) {
     next(error);
@@ -103,6 +119,14 @@ export const getStudentStats = async (req, res, next) => {
 export const deleteStudent = async (req, res, next) => {
   try {
     const student = await studentService.deactivateStudent(req.params.id);
+
+    // Notify admins of the deletion/deactivation
+    await notifyAdmins({
+      title: "Student Account Deleted",
+      message: "A student record has been removed from the active system.",
+      category: "alert",
+    });
+
     return response(res, student, "Student deleted successfully");
   } catch (error) {
     next(error);
@@ -193,6 +217,13 @@ export const uploadBulkStudents = async (req, res) => {
     }
 
     await client.query("COMMIT");
+
+    // Notify admins of the bulk upload success
+    await notifyAdmins({
+      title: "Bulk Students Uploaded",
+      message: `Successfully processed and registered ${successCount} students via Excel upload.`,
+      category: "system",
+    });
 
     return res.status(200).json({
       success: true,

@@ -2,10 +2,24 @@ import * as resultService from "../services/resultService.js";
 import { response } from "../utils/response.js";
 import * as resultUploadService from "../services/resultUploadService.js";
 import pool from "../config/database.js";
+import {
+  createNotification,
+  notifyAdmins,
+} from "../services/notificationService.js";
 
 export const createResult = async (req, res, next) => {
   try {
     const result = await resultService.createResult(req.body);
+
+    // Notify the student
+    if (req.body.studentId) {
+      await createNotification({
+        studentId: req.body.studentId,
+        title: "New Result Uploaded",
+        message: "A new academic result has been uploaded to your profile.",
+        category: "results",
+      });
+    }
 
     return response(res, result, "Result created successfully", 201);
   } catch (error) {
@@ -97,6 +111,17 @@ export const approveResult = async (req, res, next) => {
   try {
     const result = await resultService.approveResult(req.params.id);
 
+    // Notify the student (using the mapped property student_id from your service)
+    if (result && result.student_id) {
+      await createNotification({
+        studentId: result.student_id,
+        title: "Result Approved",
+        message:
+          "One of your recent results has been approved and is now visible.",
+        category: "results",
+      });
+    }
+
     return response(res, result, "Result approved successfully");
   } catch (error) {
     next(error);
@@ -115,6 +140,15 @@ export const deactivateResult = async (req, res, next) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ message: "Result not found" });
     }
+
+    // Notify the student
+    await createNotification({
+      studentId: result.rows[0].studentid,
+      title: "Result Suspended",
+      message:
+        "One of your results has been temporarily suspended pending review.",
+      category: "alert",
+    });
 
     res
       .status(200)
@@ -194,6 +228,13 @@ export const uploadResults = async (req, res, next) => {
       uploadType,
     });
 
+    // Notify all admins that a bulk upload occurred
+    await notifyAdmins({
+      title: "Bulk Results Uploaded",
+      message: `A new batch of results has been uploaded and is pending approval.`,
+      category: "system",
+    });
+
     return response(res, result, "Results uploaded successfully", 201);
   } catch (error) {
     next(error);
@@ -207,10 +248,27 @@ export const bulkApproveResults = async (req, res, next) => {
       return res.status(400).json({ message: "No result IDs provided" });
     }
 
-    await pool.query(
-      `UPDATE results SET isapproved = true WHERE id = ANY($1::uuid[])`,
+    // Capture the student IDs affected by this bulk update
+    const updated = await pool.query(
+      `UPDATE results SET isapproved = true WHERE id = ANY($1::uuid[]) RETURNING studentid`,
       [ids],
     );
+
+    // Extract unique student IDs to avoid sending 5 notifications if 5 results are approved for one student
+    const uniqueStudentIds = [
+      ...new Set(updated.rows.map((row) => row.studentid)),
+    ];
+
+    // Notify each affected student once
+    for (const studentId of uniqueStudentIds) {
+      await createNotification({
+        studentId,
+        title: "Results Approved",
+        message:
+          "One or more of your results have been approved and are now visible.",
+        category: "results",
+      });
+    }
 
     res.status(200).json({ message: "Results approved successfully" });
   } catch (error) {
@@ -243,10 +301,27 @@ export const bulkDeactivateResults = async (req, res, next) => {
       return res.status(400).json({ message: "No result IDs provided" });
     }
 
-    await pool.query(
-      `UPDATE results SET isapproved = false WHERE id = ANY($1::uuid[])`,
+    // Capture the student IDs affected by this bulk update
+    const updated = await pool.query(
+      `UPDATE results SET isapproved = false WHERE id = ANY($1::uuid[]) RETURNING studentid`,
       [ids],
     );
+
+    // Extract unique student IDs
+    const uniqueStudentIds = [
+      ...new Set(updated.rows.map((row) => row.studentid)),
+    ];
+
+    // Notify each affected student once
+    for (const studentId of uniqueStudentIds) {
+      await createNotification({
+        studentId,
+        title: "Results Suspended",
+        message:
+          "One or more of your results have been temporarily suspended pending review.",
+        category: "alert",
+      });
+    }
 
     res
       .status(200)

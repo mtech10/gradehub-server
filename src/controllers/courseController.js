@@ -2,10 +2,18 @@ import * as courseService from "../services/courseService.js";
 import pool from "../config/database.js";
 import { response } from "../utils/response.js";
 import xlsx from "xlsx";
+import { notifyAdmins } from "../services/notificationService.js";
 
 export const createCourse = async (req, res, next) => {
   try {
     const course = await courseService.createCourse(req.body);
+
+    // Notify admins of the new course addition
+    await notifyAdmins({
+      title: "New Course Added",
+      message: `The course ${course.code || req.body.code} - ${course.title || req.body.title} has been created.`,
+      category: "system",
+    });
 
     return response(res, course, "Course created successfully", 201);
   } catch (error) {
@@ -52,6 +60,13 @@ export const updateCourse = async (req, res, next) => {
 export const deactivateCourse = async (req, res, next) => {
   try {
     const course = await courseService.deactivateCourse(req.params.id);
+
+    // Notify admins that a course was deactivated
+    await notifyAdmins({
+      title: "Course Deactivated",
+      message: `A course record has been deactivated and suspended from active status.`,
+      category: "alert",
+    });
 
     return response(res, course, "Course deactivated successfully");
   } catch (error) {
@@ -153,6 +168,13 @@ export const uploadBulkCourses = async (req, res) => {
 
     // Commit transaction
     await client.query("COMMIT");
+
+    // Notify admins of the bulk course upload success
+    await notifyAdmins({
+      title: "Bulk Courses Uploaded",
+      message: `Successfully processed and imported ${successCount} courses via Excel upload.`,
+      category: "system",
+    });
 
     return res.status(200).json({
       success: true,

@@ -11,6 +11,8 @@ import ensureActive from "../utils/ensureActive.js";
 import softDelete from "../utils/softDelete.js";
 import restoreEntity from "../utils/restoreEntity.js";
 
+import { getRuleForStudent } from "./registrationRuleService.js";
+
 export const createCourseRegistration = async (data) => {
   const { studentId, courseId, sessionId, semesterId } = data;
 
@@ -322,6 +324,9 @@ export const getCurrentStudentRegistrationData = async (
     currentSession = sessionResult.rows[0];
   }
 
+  // Fetch dynamic registration rules for this specific student's department and level
+  const rule = await getRuleForStudent(student.department_id, student.level_id);
+
   // Fetch ALL registrations for the session
   const registrationResult = await pool.query(
     `
@@ -333,7 +338,7 @@ export const getCurrentStudentRegistrationData = async (
       c.code AS course_code,
       c.title AS course_title,
       c.creditunit AS course_unit,
-      c.semester -- <-- Just grab the simple text string we created earlier
+      c.semester
     FROM course_registrations cr
     JOIN courses c
       ON cr.courseid = c.id
@@ -372,12 +377,12 @@ export const getCurrentStudentRegistrationData = async (
       code: row.course_code,
       title: row.course_title,
       creditUnit: Number(row.course_unit),
-      semester: row.semester, // <-- Flattened to a string to match the frontend
+      semester: row.semester,
       status: "Registered",
     })),
     rules: {
-      minUnits: 12,
-      maxUnits: 48,
+      minUnits: rule.min_units,
+      maxUnits: rule.max_units,
       status: "Open",
       deadline: null,
     },
@@ -422,6 +427,13 @@ export const processStudentRegistration = async ({
       current = sesRes.rows[0];
     }
 
+    // NEW: Fetch all active semesters for this specific session so we can grab their UUIDs
+    const semestersResult = await client.query(
+      `SELECT id, name FROM semesters WHERE sessionid = $1`,
+      [current.session_id],
+    );
+    const sessionSemesters = semestersResult.rows;
+
     // Get ALL existing registered courses for the whole session
     const registeredResult = await client.query(
       `
@@ -451,10 +463,10 @@ export const processStudentRegistration = async ({
     let coursesToRegister = [];
 
     if (registerCodes.length > 0) {
-      // FIX: Notice we select the course's 'semesterid' here, and removed the semester filter from WHERE
+      // FIX: Query 'semester' (text column), NOT 'semesterid'
       const courseResult = await client.query(
         `
-        SELECT id, code, title, creditunit, semesterid
+        SELECT id, code, title, creditunit, semester
         FROM courses
         WHERE UPPER(code) = ANY($1::text[])
           AND departmentid = $2
@@ -512,14 +524,22 @@ export const processStudentRegistration = async ({
     );
     const projectedUnits = remainingUnits + newUnits;
 
-    // Optional: Adjust these rules if they apply to the whole session now instead of semester
-    const MIN_UNITS = 12;
-    const MAX_UNITS = 48; // Expanded for full session
+    // Dynamically fetch unit limits based on department and level rules
+    const rule = await getRuleForStudent(student.departmentid, student.levelid);
+    const MIN_UNITS = rule.min_units;
+    const MAX_UNITS = rule.max_units;
 
     if (projectedUnits > MAX_UNITS) {
       throw apiError(
         400,
         `Maximum registration load is ${MAX_UNITS} units. You selected ${projectedUnits} units.`,
+      );
+    }
+
+    if (projectedUnits > 0 && projectedUnits < MIN_UNITS) {
+      throw apiError(
+        400,
+        `Minimum registration load is ${MIN_UNITS} units. You only selected ${projectedUnits} units.`,
       );
     }
 
@@ -531,15 +551,46 @@ export const processStudentRegistration = async ({
       );
     }
 
-    // Insert new registrations, linking each strictly to the semester that course belongs to!
-    for (const course of coursesToRegister) {
-      await client.query(
-        `
+    // Optimized Bulk Insert
+    if (coursesToRegister.length > 0) {
+      const insertValues = [];
+      const queryParams = [];
+      let paramIndex = 1;
+
+      for (const course of coursesToRegister) {
+        // FIX: Map the text string from the course (e.g. "1st" or "First") to the actual Semester UUID
+        const semText = (course.semester || "").toLowerCase();
+        let matchedSemester = sessionSemesters[0]; // Fallback to the first semester in the DB
+
+        if (semText.includes("1") || semText.includes("first")) {
+          matchedSemester =
+            sessionSemesters.find((s) =>
+              s.name.toLowerCase().includes("first"),
+            ) || matchedSemester;
+        } else if (semText.includes("2") || semText.includes("second")) {
+          matchedSemester =
+            sessionSemesters.find((s) =>
+              s.name.toLowerCase().includes("second"),
+            ) || matchedSemester;
+        }
+
+        insertValues.push(
+          `($${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, true)`,
+        );
+        queryParams.push(
+          studentId,
+          course.id,
+          current.session_id,
+          matchedSemester.id,
+        );
+      }
+
+      const bulkInsertQuery = `
         INSERT INTO course_registrations (studentid, courseid, sessionid, semesterid, isactive)
-        VALUES ($1, $2, $3, $4, true)
-        `,
-        [studentId, course.id, current.session_id, course.semesterid], // <- course.semesterid handles the split!
-      );
+        VALUES ${insertValues.join(", ")}
+      `;
+
+      await client.query(bulkInsertQuery, queryParams);
     }
 
     await client.query("COMMIT");
