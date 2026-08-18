@@ -90,13 +90,12 @@ export const createStudent = async (data) => {
   return await getStudentById(result.rows[0].id);
 };
 export const getStudents = async (filters) => {
-  // FIXED: Force page and limit to be integers so math works correctly
   const page = parseInt(filters.page, 10) || 1;
   const limit = parseInt(filters.limit, 10) || 10;
 
   const {
     search = "",
-    status = "active",
+    status, // Do NOT default to "active" here so "All" works
     departmentId,
     levelId,
     sessionId,
@@ -106,15 +105,18 @@ export const getStudents = async (filters) => {
 
   const offset = (page - 1) * limit;
 
-  // ... (Keep the rest of your whereClause building exactly the same) ...
   let whereClause = "";
   const values = [];
   let index = 1;
 
-  if (status === "active") {
-    whereClause += ` WHERE s.isactive = true`;
-  } else if (status === "inactive") {
-    whereClause += ` WHERE s.isactive = false`;
+  // Handle status filter dynamically
+  if (status && status.toLowerCase() !== "all") {
+    const s = status.toLowerCase();
+    if (s === "active") {
+      whereClause += ` WHERE s.isactive = true`;
+    } else if (s === "inactive" || s === "suspended" || s === "withdrawn") {
+      whereClause += ` WHERE s.isactive = false`;
+    }
   }
 
   if (departmentId) {

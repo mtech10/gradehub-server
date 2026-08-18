@@ -100,6 +100,8 @@ export const getResults = async (filters) => {
     courseId,
     sessionId,
     semesterId,
+    departmentId, // <-- Added Department ID
+    levelId, // <-- Added Level ID
     approved,
     sort = "createdat",
     order = "desc",
@@ -121,7 +123,6 @@ export const getResults = async (filters) => {
     whereClause += whereClause
       ? ` AND r.studentid = $${index}`
       : ` WHERE r.studentid = $${index}`;
-
     values.push(studentId);
     index++;
   }
@@ -130,7 +131,6 @@ export const getResults = async (filters) => {
     whereClause += whereClause
       ? ` AND r.courseid = $${index}`
       : ` WHERE r.courseid = $${index}`;
-
     values.push(courseId);
     index++;
   }
@@ -139,7 +139,6 @@ export const getResults = async (filters) => {
     whereClause += whereClause
       ? ` AND r.sessionid = $${index}`
       : ` WHERE r.sessionid = $${index}`;
-
     values.push(sessionId);
     index++;
   }
@@ -148,8 +147,29 @@ export const getResults = async (filters) => {
     whereClause += whereClause
       ? ` AND r.semesterid = $${index}`
       : ` WHERE r.semesterid = $${index}`;
-
     values.push(semesterId);
+    index++;
+  }
+
+  // --- NEW: Department Filter ---
+  if (departmentId) {
+    // Using c.departmentid to filter by the Student's department
+    // (Change to c.departmentid if you want to filter by the Course's department)
+    whereClause += whereClause
+      ? ` AND c.departmentid = $${index}`
+      : ` WHERE c.departmentid = $${index}`;
+    values.push(departmentId);
+    index++;
+  }
+
+  // --- NEW: Level Filter ---
+  if (levelId) {
+    // Using c.levelid to filter by the Student's level
+    // (Change to c.levelid if you want to filter by the Course's level)
+    whereClause += whereClause
+      ? ` AND c.levelid = $${index}`
+      : ` WHERE c.levelid = $${index}`;
+    values.push(levelId);
     index++;
   }
 
@@ -157,7 +177,6 @@ export const getResults = async (filters) => {
     whereClause += whereClause
       ? ` AND r.isapproved = $${index}`
       : ` WHERE r.isapproved = $${index}`;
-
     values.push(approved === "true");
     index++;
   }
@@ -176,28 +195,17 @@ export const getResults = async (filters) => {
     whereClause += whereClause
       ? ` AND ${searchClause}`
       : ` WHERE ${searchClause}`;
-
     values.push(`%${search}%`);
     index++;
   }
 
   const countQuery = `
     SELECT COUNT(*) AS total
-
     FROM results r
-
-    JOIN students s
-      ON r.studentid = s.id
-
-    JOIN courses c
-      ON r.courseid = c.id
-
-    JOIN sessions ses
-      ON r.sessionid = ses.id
-
-    JOIN semesters sem
-      ON r.semesterid = sem.id
-
+    JOIN students s ON r.studentid = s.id
+    JOIN courses c ON r.courseid = c.id
+    JOIN sessions ses ON r.sessionid = ses.id
+    JOIN semesters sem ON r.semesterid = sem.id
     ${whereClause}
   `;
 
@@ -205,9 +213,7 @@ export const getResults = async (filters) => {
   const total = Number(countResult.rows[0].total);
 
   const allowedSort = ["createdat", "updatedat", "total_score", "grade"];
-
   const sortBy = allowedSort.includes(sort) ? sort : "createdat";
-
   const sortOrder = order.toLowerCase() === "asc" ? "ASC" : "DESC";
 
   values.push(limit);
@@ -215,7 +221,6 @@ export const getResults = async (filters) => {
 
   const query = `
     SELECT
-
       r.id,
       r.ca_score,
       r.exam_score,
@@ -236,7 +241,7 @@ export const getResults = async (filters) => {
       c.id              AS course_id,
       c.code            AS course_code,
       c.title           AS course_title,
-      c.creditunit            AS course_unit,
+      c.creditunit      AS course_unit,
 
       ses.id            AS session_id,
       ses.name          AS session_name,
@@ -245,23 +250,12 @@ export const getResults = async (filters) => {
       sem.name          AS semester_name
 
     FROM results r
-
-    JOIN students s
-      ON r.studentid = s.id
-
-    JOIN courses c
-      ON r.courseid = c.id
-
-    JOIN sessions ses
-      ON r.sessionid = ses.id
-
-    JOIN semesters sem
-      ON r.semesterid = sem.id
-
+    JOIN students s ON r.studentid = s.id
+    JOIN courses c ON r.courseid = c.id
+    JOIN sessions ses ON r.sessionid = ses.id
+    JOIN semesters sem ON r.semesterid = sem.id
     ${whereClause}
-
     ORDER BY r.${sortBy} ${sortOrder}
-
     LIMIT $${index}
     OFFSET $${index + 1}
   `;
@@ -448,7 +442,7 @@ export const restoreResult = async (id) => {
 };
 
 export const getResultStatistics = async (filters = {}) => {
-  const { search = "", sessionId, semesterId } = filters;
+  const { search = "", sessionId, semesterId, departmentId, levelId } = filters;
 
   const values = [];
   let index = 1;
@@ -460,7 +454,6 @@ export const getResultStatistics = async (filters = {}) => {
   if (sessionId) {
     resultWhere += ` AND r.sessionid = $${index}`;
     registrationWhere += ` AND cr.sessionid = $${index}`;
-
     values.push(sessionId);
     index++;
   }
@@ -469,8 +462,23 @@ export const getResultStatistics = async (filters = {}) => {
   if (semesterId) {
     resultWhere += ` AND r.semesterid = $${index}`;
     registrationWhere += ` AND cr.semesterid = $${index}`;
-
     values.push(semesterId);
+    index++;
+  }
+
+  // --- NEW: Department Filter ---
+  if (departmentId) {
+    resultWhere += ` AND c.departmentid = $${index}`;
+    registrationWhere += ` AND c.departmentid = $${index}`;
+    values.push(departmentId);
+    index++;
+  }
+
+  // --- NEW: Level Filter ---
+  if (levelId) {
+    resultWhere += ` AND c.levelid = $${index}`;
+    registrationWhere += ` AND c.levelid = $${index}`;
+    values.push(levelId);
     index++;
   }
 
@@ -506,13 +514,8 @@ export const getResultStatistics = async (filters = {}) => {
   const totalResultsQuery = `
     SELECT COUNT(*) AS total
     FROM results r
-
-    JOIN students s
-      ON r.studentid = s.id
-
-    JOIN courses c
-      ON r.courseid = c.id
-
+    JOIN students s ON r.studentid = s.id
+    JOIN courses c ON r.courseid = c.id
     ${resultWhere}
   `;
 
@@ -522,13 +525,8 @@ export const getResultStatistics = async (filters = {}) => {
   const approvedResultsQuery = `
     SELECT COUNT(*) AS total
     FROM results r
-
-    JOIN students s
-      ON r.studentid = s.id
-
-    JOIN courses c
-      ON r.courseid = c.id
-
+    JOIN students s ON r.studentid = s.id
+    JOIN courses c ON r.courseid = c.id
     ${resultWhere}
       AND r.isapproved = true
   `;
@@ -539,40 +537,26 @@ export const getResultStatistics = async (filters = {}) => {
   const pendingResultsQuery = `
     SELECT COUNT(*) AS total
     FROM results r
-
-    JOIN students s
-      ON r.studentid = s.id
-
-    JOIN courses c
-      ON r.courseid = c.id
-
+    JOIN students s ON r.studentid = s.id
+    JOIN courses c ON r.courseid = c.id
     ${resultWhere}
       AND r.isapproved = false
   `;
 
   /*
    * MISSING RESULTS
-   *
-   * A missing result is an active course registration
-   * that does not have an active result.
    */
   const missingResultsQuery = `
     SELECT COUNT(*) AS total
     FROM course_registrations cr
-
-    JOIN students s
-      ON cr.studentid = s.id
-
-    JOIN courses c
-      ON cr.courseid = c.id
-
+    JOIN students s ON cr.studentid = s.id
+    JOIN courses c ON cr.courseid = c.id
     LEFT JOIN results r
       ON r.studentid = cr.studentid
       AND r.courseid = cr.courseid
       AND r.sessionid = cr.sessionid
       AND r.semesterid = cr.semesterid
       AND r.isactive = true
-
     ${registrationWhere}
       AND r.id IS NULL
   `;
