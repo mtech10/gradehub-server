@@ -194,7 +194,7 @@ export const getDepartmentById = async (id) => {
     throw apiError(404, "Department not found");
   }
 
-  const result = await pool.query(
+  const departmentResult = await pool.query(
     `
     SELECT
       d.id,
@@ -208,19 +208,24 @@ export const getDepartmentById = async (id) => {
 
       f.id   AS faculty_id,
       f.name AS faculty_name,
-      f.code AS faculty_code
+      f.code AS faculty_code,
+
+      -- Safely use departmentid (or check if your table uses department_id)
+      (SELECT COUNT(*) FROM students s WHERE s.departmentid = d.id) AS student_count,
+      (SELECT COUNT(*) FROM courses c WHERE c.departmentid = d.id) AS course_count,
+      0 AS lecturer_count
 
     FROM departments d
-
-    JOIN faculties f
-      ON d.facultyid = f.id
-
+    JOIN faculties f ON d.facultyid = f.id
     WHERE d.id = $1
     `,
     [id],
   );
 
-  return mapDepartment(result.rows[0]);
+  const department = mapDepartment(departmentResult.rows[0]);
+  department.lecturersList = [];
+
+  return department;
 };
 
 export const updateDepartment = async (id, data) => {
