@@ -111,10 +111,16 @@ export const approveResult = async (req, res, next) => {
   try {
     const result = await resultService.approveResult(req.params.id);
 
-    // Notify the student (using the mapped property student_id from your service)
-    if (result && result.student_id) {
+    // FIX: Intelligently grab the student ID from raw DB row or mapped object
+    const targetStudentId =
+      result?.studentid ||
+      result?.student_id ||
+      result?.studentId ||
+      result?.student?.id;
+
+    if (targetStudentId) {
       await createNotification({
-        studentId: result.student_id,
+        studentId: targetStudentId,
         title: "Result Approved",
         message:
           "One of your recent results has been approved and is now visible.",
