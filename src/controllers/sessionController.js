@@ -16,7 +16,6 @@ export const create = async (req, res, next) => {
   try {
     const session = await createSession(req.body);
 
-    // Notify admins that a new session was created
     await notifyAdmins({
       title: "New Session Created",
       message: `The academic session ${session.name || ""} has been created and added to the system.`,
@@ -66,7 +65,6 @@ export const makeCurrent = async (req, res, next) => {
   try {
     const session = await setCurrentSession(req.params.id);
 
-    // Notify admins that the active session has changed across the platform
     await notifyAdmins({
       title: "Active Session Updated",
       message: `The current academic session has been officially set to ${session.name || "a new session"}.`,
@@ -101,8 +99,6 @@ export const promote = async (req, res, next) => {
   try {
     const result = await runSessionPromotion(req.params.id);
 
-    // Notify admins that the bulk promotion script has finished running
-    // We can extract the stats right into the message for quick viewing!
     const { promoted = 0, graduated = 0 } = result.stats || {};
     await notifyAdmins({
       title: "Session Promotion Completed",

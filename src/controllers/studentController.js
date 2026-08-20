@@ -8,7 +8,6 @@ export const createStudent = async (req, res, next) => {
   try {
     const student = await studentService.createStudent(req.body);
 
-    // Notify admins of the new enrollment
     await notifyAdmins({
       title: "New Student Registered",
       message: `A new student (${req.body.firstname} ${req.body.lastname}) has been manually added to the system.`,
@@ -59,7 +58,7 @@ export const getStudentById = async (req, res, next) => {
 
     return res.status(200).json({ success: true, data: result.rows[0] });
   } catch (error) {
-    next(error); // This prevents hanging if the database crashes
+    next(error);
   }
 };
 
@@ -77,7 +76,6 @@ export const deactivateStudent = async (req, res, next) => {
   try {
     const student = await studentService.deactivateStudent(req.params.id);
 
-    // Notify admins of the deactivation
     await notifyAdmins({
       title: "Student Account Deactivated",
       message:
@@ -101,7 +99,6 @@ export const restoreStudent = async (req, res, next) => {
   }
 };
 
-// Add this to your backend studentController.js
 export const getStudentStats = async (req, res, next) => {
   try {
     const stats = await studentService.getStudentStats();
@@ -120,7 +117,6 @@ export const deleteStudent = async (req, res, next) => {
   try {
     const student = await studentService.deactivateStudent(req.params.id);
 
-    // Notify admins of the deletion/deactivation
     await notifyAdmins({
       title: "Student Account Deleted",
       message: "A student record has been removed from the active system.",
@@ -149,7 +145,6 @@ export const uploadBulkStudents = async (req, res) => {
   const client = await pool.connect();
 
   try {
-    // 1. Automatically fetch the current active session ID (using 'isactive' without the underscore)
     const sessionResult = await client.query(
       `SELECT id FROM sessions WHERE isactive = true LIMIT 1`,
     );
@@ -210,7 +205,7 @@ export const uploadBulkStudents = async (req, res) => {
         email || null,
         departmentId,
         levelId,
-        sessionId, // Automatically injected active session ID!
+        sessionId,
         currentYear,
       ]);
       successCount++;
@@ -218,7 +213,6 @@ export const uploadBulkStudents = async (req, res) => {
 
     await client.query("COMMIT");
 
-    // Notify admins of the bulk upload success
     await notifyAdmins({
       title: "Bulk Students Uploaded",
       message: `Successfully processed and registered ${successCount} students via Excel upload.`,

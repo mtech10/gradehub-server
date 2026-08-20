@@ -10,46 +10,46 @@ import checkDuplicate from "../utils/checkDuplicate.js";
 import softDelete from "../utils/softDelete.js";
 import restoreEntity from "../utils/restoreEntity.js";
 
-// export const createDepartment = async (data) => {
-//   const { name, code, facultyId, hod, description } = data;
 
-//   await checkDuplicate({
-//     table: "departments",
-//     conditions: {
-//       code,
-//     },
-//     excludeId: id,
-//     message: "Department already exists",
-//   });
 
-//   await ensureActive({
-//     table: "faculties",
-//     id: facultyId,
-//     message: "Faculty not found",
-//   });
-//   const result = await pool.query(
-//     `
-//     INSERT INTO departments
-//     (
-//       name,
-//       code,
-//       facultyid,
-//       hod,
-//       description
-//     )
-//     VALUES ($1,$2,$3,$4,$5)
-//     RETURNING id
-//     `,
-//     [name, code, facultyId, hod, description],
-//   );
 
-//   return getDepartmentById(result.rows[0].id);
-// };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 export const createDepartment = async (data) => {
   const { name, code, facultyId, hod, description } = data;
 
-  // Check for duplicate code without excludeId
+  
   await checkDuplicate({
     table: "departments",
     conditions: {

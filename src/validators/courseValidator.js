@@ -33,7 +33,7 @@ export const createCourseValidator = [
     .isUUID()
     .withMessage("Invalid Level ID"),
 
-  // CHANGED: Replaced semesterId with semester and removed isUUID()
+  
   body("semester")
     .trim()
     .notEmpty()
@@ -66,7 +66,7 @@ export const updateCourseValidator = [
 
   body("levelId").optional().isUUID().withMessage("Invalid Level ID"),
 
-  // CHANGED: Replaced semesterId with semester and removed isUUID()
+  
   body("semester")
     .optional()
     .trim()

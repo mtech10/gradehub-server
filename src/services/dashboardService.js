@@ -78,7 +78,7 @@ export const getAdminDashboard = async () => {
     LIMIT 1
     `),
 
-    // RECENT STUDENTS QUERY
+    
     pool.query(`
     SELECT
         s.id,
@@ -106,7 +106,7 @@ export const getAdminDashboard = async () => {
     LIMIT 5
 `),
 
-    // FIX: RECENT PENDING RESULTS QUERY (Added JOINS and isapproved = false)
+    
     pool.query(`
     SELECT
 
@@ -147,7 +147,7 @@ export const getAdminDashboard = async () => {
     LIMIT 5
 `),
 
-    // FIX: DEPARTMENT STATISTICS (Now correctly counts courses too)
+    
     pool.query(`
     SELECT
         d.id,
@@ -220,7 +220,7 @@ ORDER BY date
         activeSemester.rows.length > 0 ? activeSemester.rows[0] : null,
     },
 
-    // FIX: ADDED fullName AND status so the frontend table has what it needs!
+    
     recentStudents: recentStudents.rows.map((student) => ({
       id: student.id,
       matricNumber: student.matricnumber,
@@ -233,7 +233,7 @@ ORDER BY date
       createdAt: student.createdat,
     })),
 
-    // FIX: ADDED flat properties for the table (courseCode, department, level, etc.)
+    
     recentResults: recentResults.rows.map((result) => ({
       id: result.id,
 
@@ -259,7 +259,7 @@ ORDER BY date
       createdAt: result.createdat,
     })),
 
-    // FIX: Now maps courses, lecturers, and a safe completion metric
+    
     departmentStatistics: departmentStatistics.rows.map((dep) => {
       const studentCount = Number(dep.students) || 0;
       const courseCount = Number(dep.courses) || 0;
@@ -269,8 +269,8 @@ ORDER BY date
         name: dep.name,
         students: studentCount,
         courses: courseCount,
-        lecturers: 0, // Hardcoded to 0 instead of missing entirely
-        completion: studentCount > 0 ? 100 : 0, // Mock progress based on having students
+        lecturers: 0, 
+        completion: studentCount > 0 ? 100 : 0, 
       };
     }),
 

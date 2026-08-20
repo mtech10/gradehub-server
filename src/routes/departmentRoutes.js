@@ -17,7 +17,6 @@ import * as registrationRuleController from "../controllers/registrationRuleCont
 
 const router = express.Router();
 
-// Your existing top-level middlewares
 router.use(authenticate);
 router.use(authorize("admin"));
 
@@ -84,8 +83,6 @@ router.patch(
   validateUUID(),
   departmentController.restoreDepartment,
 );
-
-// --- CORRECTED NEW ROUTES ---
 
 router.delete(
   "/registration-rules/:id",

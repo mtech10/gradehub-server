@@ -100,8 +100,8 @@ export const getResults = async (filters) => {
     courseId,
     sessionId,
     semesterId,
-    departmentId, // <-- Added Department ID
-    levelId, // <-- Added Level ID
+    departmentId,
+    levelId,
     approved,
     sort = "createdat",
     order = "desc",
@@ -151,10 +151,7 @@ export const getResults = async (filters) => {
     index++;
   }
 
-  // --- NEW: Department Filter ---
   if (departmentId) {
-    // Using c.departmentid to filter by the Student's department
-    // (Change to c.departmentid if you want to filter by the Course's department)
     whereClause += whereClause
       ? ` AND c.departmentid = $${index}`
       : ` WHERE c.departmentid = $${index}`;
@@ -162,10 +159,7 @@ export const getResults = async (filters) => {
     index++;
   }
 
-  // --- NEW: Level Filter ---
   if (levelId) {
-    // Using c.levelid to filter by the Student's level
-    // (Change to c.levelid if you want to filter by the Course's level)
     whereClause += whereClause
       ? ` AND c.levelid = $${index}`
       : ` WHERE c.levelid = $${index}`;
@@ -450,7 +444,6 @@ export const getResultStatistics = async (filters = {}) => {
   let resultWhere = "WHERE r.isactive = true";
   let registrationWhere = "WHERE cr.isactive = true";
 
-  // Session filter
   if (sessionId) {
     resultWhere += ` AND r.sessionid = $${index}`;
     registrationWhere += ` AND cr.sessionid = $${index}`;
@@ -458,7 +451,6 @@ export const getResultStatistics = async (filters = {}) => {
     index++;
   }
 
-  // Semester filter
   if (semesterId) {
     resultWhere += ` AND r.semesterid = $${index}`;
     registrationWhere += ` AND cr.semesterid = $${index}`;
@@ -466,7 +458,6 @@ export const getResultStatistics = async (filters = {}) => {
     index++;
   }
 
-  // --- NEW: Department Filter ---
   if (departmentId) {
     resultWhere += ` AND c.departmentid = $${index}`;
     registrationWhere += ` AND c.departmentid = $${index}`;
@@ -474,7 +465,6 @@ export const getResultStatistics = async (filters = {}) => {
     index++;
   }
 
-  // --- NEW: Level Filter ---
   if (levelId) {
     resultWhere += ` AND c.levelid = $${index}`;
     registrationWhere += ` AND c.levelid = $${index}`;
@@ -482,7 +472,6 @@ export const getResultStatistics = async (filters = {}) => {
     index++;
   }
 
-  // Search filter
   if (search) {
     const searchClause = `
       (
@@ -508,9 +497,6 @@ export const getResultStatistics = async (filters = {}) => {
     index++;
   }
 
-  /*
-   * TOTAL RESULTS
-   */
   const totalResultsQuery = `
     SELECT COUNT(*) AS total
     FROM results r
@@ -519,9 +505,6 @@ export const getResultStatistics = async (filters = {}) => {
     ${resultWhere}
   `;
 
-  /*
-   * APPROVED RESULTS
-   */
   const approvedResultsQuery = `
     SELECT COUNT(*) AS total
     FROM results r
@@ -531,9 +514,6 @@ export const getResultStatistics = async (filters = {}) => {
       AND r.isapproved = true
   `;
 
-  /*
-   * PENDING RESULTS
-   */
   const pendingResultsQuery = `
     SELECT COUNT(*) AS total
     FROM results r
@@ -543,9 +523,6 @@ export const getResultStatistics = async (filters = {}) => {
       AND r.isapproved = false
   `;
 
-  /*
-   * MISSING RESULTS
-   */
   const missingResultsQuery = `
     SELECT COUNT(*) AS total
     FROM course_registrations cr

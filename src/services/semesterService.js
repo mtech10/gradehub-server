@@ -233,13 +233,13 @@ export const setCurrentSemester = async (id) => {
       message: "Semester not found",
     });
 
-    // 1. Remove the 'current' status from ALL semesters globally, regardless of session
+    
     await client.query(`
       UPDATE semesters
       SET iscurrent = false
     `);
 
-    // 2. Set the newly selected semester as the one and only current semester
+    
     const result = await client.query(
       `
       UPDATE semesters

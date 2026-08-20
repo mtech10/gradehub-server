@@ -10,10 +10,8 @@ import authorize from "../middleware/authorize.js";
 
 const router = express.Router();
 
-// Middleware for auth
 router.use(authenticate, authorize("admin"));
 
-// 1. GET ALL RULES
 router.get("/", async (req, res, next) => {
   try {
     const rules = await getPromotionRules();
@@ -23,7 +21,6 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-// 2. SAVE NEW RULE
 router.post("/", async (req, res, next) => {
   try {
     const rule = await savePromotionRule(req.body);
@@ -37,7 +34,6 @@ router.post("/", async (req, res, next) => {
   }
 });
 
-// 3. BATCH DELETE
 router.post("/batch-delete", async (req, res, next) => {
   try {
     const { ids } = req.body;
@@ -55,7 +51,6 @@ router.post("/batch-delete", async (req, res, next) => {
   }
 });
 
-// 4. DELETE SINGLE RULE
 router.delete("/:id", async (req, res, next) => {
   try {
     await deletePromotionRule(req.params.id);

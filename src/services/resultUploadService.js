@@ -93,13 +93,13 @@ const findAcademicDetails = async ({
       AND isactive = true
     LIMIT 1
     `,
-    [courseId, departmentRow.id, levelRow.id], // Removed semesterRow.id
+    [courseId, departmentRow.id, levelRow.id], 
   );
 
   if (!courseResult.rows.length) {
     throw apiError(
       404,
-      "Course does not match the selected department and level", // Updated error message
+      "Course does not match the selected department and level", 
     );
   }
 
@@ -133,7 +133,7 @@ const findStudentByMatricNumber = async (matricNumber) => {
 
 export const validateResultUpload = async ({ fileBuffer, metadata }) => {
   const { sessionId, semesterId, departmentId, courseId, levelId } = metadata;
-  // 1. Resolve the selected academic information
+  
   const academic = await findAcademicDetails({
     sessionId,
     semesterId,
@@ -142,13 +142,13 @@ export const validateResultUpload = async ({ fileBuffer, metadata }) => {
     levelId,
   });
 
-  // 2. Parse the Excel file
+  
   const rows = parseResultCSV(fileBuffer);
 
   const validRows = [];
   const invalidRows = [];
 
-  // 3. Validate every Excel row
+  
   for (const row of rows) {
     const errors = [];
 
@@ -178,7 +178,7 @@ export const validateResultUpload = async ({ fileBuffer, metadata }) => {
       continue;
     }
 
-    // Find the student
+    
     const studentResult = await pool.query(
       `
       SELECT
@@ -206,7 +206,7 @@ export const validateResultUpload = async ({ fileBuffer, metadata }) => {
 
     const student = studentResult.rows[0];
 
-    // Check that the student is registered for the course
+    
     const registrationResult = await pool.query(
       `
       SELECT id
@@ -237,7 +237,7 @@ export const validateResultUpload = async ({ fileBuffer, metadata }) => {
       continue;
     }
 
-    // Check whether a result already exists
+    
     const existingResult = await pool.query(
       `
       SELECT id
@@ -312,7 +312,7 @@ export const uploadResults = async ({
   metadata,
   uploadType = "new",
 }) => {
-  // First validate the entire file
+  
   const validation = await validateResultUpload({
     fileBuffer,
     metadata,

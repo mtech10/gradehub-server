@@ -95,7 +95,7 @@ export const getStudents = async (filters) => {
 
   const {
     search = "",
-    status, // Do NOT default to "active" here so "All" works
+    status, 
     departmentId,
     levelId,
     sessionId,
@@ -109,7 +109,7 @@ export const getStudents = async (filters) => {
   const values = [];
   let index = 1;
 
-  // Handle status filter dynamically
+  
   if (status && status.toLowerCase() !== "all") {
     const s = status.toLowerCase();
     if (s === "active") {
@@ -249,7 +249,7 @@ export const updateStudent = async (id, data) => {
     });
   }
 
-  // FIXED: Fallback to the new IDs if provided in the update payload, otherwise keep the old mapped ID
+  
   const updateDepartmentId = updated.departmentId || updated.department?.id;
   const updateLevelId = updated.levelId || updated.level?.id;
   const updateSessionId = updated.sessionId || updated.session?.id;
@@ -302,9 +302,9 @@ export const updateStudent = async (id, data) => {
       updated.phone,
       updated.dateOfBirth,
       updated.admissionYear,
-      updateDepartmentId, // FIXED
-      updateLevelId, // FIXED
-      updateSessionId, // FIXED
+      updateDepartmentId, 
+      updateLevelId, 
+      updateSessionId, 
       updated.photo,
       id,
     ],

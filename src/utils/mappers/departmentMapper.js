@@ -14,7 +14,7 @@ export const mapDepartment = (row) => {
       name: row.faculty_name,
       code: row.faculty_code,
     },
-    // Map the counts explicitly here!
+    
     students: Number(row.student_count || 0),
     courses: Number(row.course_count || 0),
     lecturers: Number(row.lecturer_count || 0),

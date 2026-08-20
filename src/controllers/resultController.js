@@ -11,7 +11,6 @@ export const createResult = async (req, res, next) => {
   try {
     const result = await resultService.createResult(req.body);
 
-    // Notify the student
     if (req.body.studentId) {
       await createNotification({
         studentId: req.body.studentId,
@@ -111,7 +110,6 @@ export const approveResult = async (req, res, next) => {
   try {
     const result = await resultService.approveResult(req.params.id);
 
-    // FIX: Intelligently grab the student ID from raw DB row or mapped object
     const targetStudentId =
       result?.studentid ||
       result?.student_id ||
@@ -147,7 +145,6 @@ export const deactivateResult = async (req, res, next) => {
       return res.status(404).json({ message: "Result not found" });
     }
 
-    // Notify the student
     await createNotification({
       studentId: result.rows[0].studentid,
       title: "Result Suspended",
@@ -234,7 +231,6 @@ export const uploadResults = async (req, res, next) => {
       uploadType,
     });
 
-    // Notify all admins that a bulk upload occurred
     await notifyAdmins({
       title: "Bulk Results Uploaded",
       message: `A new batch of results has been uploaded and is pending approval.`,
@@ -254,18 +250,15 @@ export const bulkApproveResults = async (req, res, next) => {
       return res.status(400).json({ message: "No result IDs provided" });
     }
 
-    // Capture the student IDs affected by this bulk update
     const updated = await pool.query(
       `UPDATE results SET isapproved = true WHERE id = ANY($1::uuid[]) RETURNING studentid`,
       [ids],
     );
 
-    // Extract unique student IDs to avoid sending 5 notifications if 5 results are approved for one student
     const uniqueStudentIds = [
       ...new Set(updated.rows.map((row) => row.studentid)),
     ];
 
-    // Notify each affected student once
     for (const studentId of uniqueStudentIds) {
       await createNotification({
         studentId,
@@ -307,18 +300,15 @@ export const bulkDeactivateResults = async (req, res, next) => {
       return res.status(400).json({ message: "No result IDs provided" });
     }
 
-    // Capture the student IDs affected by this bulk update
     const updated = await pool.query(
       `UPDATE results SET isapproved = false WHERE id = ANY($1::uuid[]) RETURNING studentid`,
       [ids],
     );
 
-    // Extract unique student IDs
     const uniqueStudentIds = [
       ...new Set(updated.rows.map((row) => row.studentid)),
     ];
 
-    // Notify each affected student once
     for (const studentId of uniqueStudentIds) {
       await createNotification({
         studentId,

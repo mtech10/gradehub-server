@@ -1,16 +1,6 @@
 import * as levelService from "../services/levelService.js";
 import { response } from "../utils/response.js";
 
-// export const create = async (req, res, next) => {
-//   try {
-//     const level = await levelService.createLevel(req.body);
-
-//     return response(res, level, "Level created successfully", 201);
-//   } catch (error) {
-//     next(error);
-//   }
-// };
-
 export const create = async (req, res, next) => {
   try {
     console.log("Reached create controller");

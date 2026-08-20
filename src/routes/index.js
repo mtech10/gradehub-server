@@ -18,7 +18,6 @@ import optionsRoutes from "./optionsRoutes.js";
 import promotionRuleRoutes from "./promotionRuleRoutes.js";
 const router = express.Router();
 
-// Root Route
 router.get("/", (req, res) => {
   res.json({
     success: true,
@@ -27,7 +26,6 @@ router.get("/", (req, res) => {
   });
 });
 
-// Health Check
 router.get("/health", healthCheck);
 
 router.use("/auth", authRoutes);

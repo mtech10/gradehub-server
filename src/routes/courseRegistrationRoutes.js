@@ -10,9 +10,6 @@ const router = express.Router();
 
 router.use(authenticate);
 
-/*
- * Student routes
- */
 router.get(
   "/current",
   authorize("student"),

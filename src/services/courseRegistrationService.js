@@ -314,7 +314,6 @@ export const getCurrentStudentRegistrationData = async (
     }
     currentSession = sessionResult.rows[0];
   } else {
-    // Fallback to the current active session
     const sessionResult = await pool.query(
       `SELECT id AS session_id, name AS session_name FROM sessions WHERE iscurrent = true AND isactive = true LIMIT 1`,
     );
@@ -324,10 +323,8 @@ export const getCurrentStudentRegistrationData = async (
     currentSession = sessionResult.rows[0];
   }
 
-  // Fetch dynamic registration rules for this specific student's department and level
   const rule = await getRuleForStudent(student.department_id, student.level_id);
 
-  // Fetch ALL registrations for the session
   const registrationResult = await pool.query(
     `
     SELECT
@@ -409,7 +406,6 @@ export const processStudentRegistration = async ({
       throw apiError(404, "Student not found");
     const student = studentResult.rows[0];
 
-    // Find the active session being targeted
     let current;
     if (sessionId) {
       const sesRes = await client.query(
@@ -427,14 +423,12 @@ export const processStudentRegistration = async ({
       current = sesRes.rows[0];
     }
 
-    // NEW: Fetch all active semesters for this specific session so we can grab their UUIDs
     const semestersResult = await client.query(
       `SELECT id, name FROM semesters WHERE sessionid = $1`,
       [current.session_id],
     );
     const sessionSemesters = semestersResult.rows;
 
-    // Get ALL existing registered courses for the whole session
     const registeredResult = await client.query(
       `
       SELECT cr.id, c.id AS course_id, c.code, c.title, c.creditunit
@@ -463,7 +457,6 @@ export const processStudentRegistration = async ({
     let coursesToRegister = [];
 
     if (registerCodes.length > 0) {
-      // FIX: Query 'semester' (text column), NOT 'semesterid'
       const courseResult = await client.query(
         `
         SELECT id, code, title, creditunit, semester
@@ -524,7 +517,6 @@ export const processStudentRegistration = async ({
     );
     const projectedUnits = remainingUnits + newUnits;
 
-    // Dynamically fetch unit limits based on department and level rules
     const rule = await getRuleForStudent(student.departmentid, student.levelid);
     const MIN_UNITS = rule.min_units;
     const MAX_UNITS = rule.max_units;
@@ -551,16 +543,14 @@ export const processStudentRegistration = async ({
       );
     }
 
-    // Optimized Bulk Insert
     if (coursesToRegister.length > 0) {
       const insertValues = [];
       const queryParams = [];
       let paramIndex = 1;
 
       for (const course of coursesToRegister) {
-        // FIX: Map the text string from the course (e.g. "1st" or "First") to the actual Semester UUID
         const semText = (course.semester || "").toLowerCase();
-        let matchedSemester = sessionSemesters[0]; // Fallback to the first semester in the DB
+        let matchedSemester = sessionSemesters[0];
 
         if (semText.includes("1") || semText.includes("first")) {
           matchedSemester =

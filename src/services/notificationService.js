@@ -147,17 +147,17 @@ export const deleteNotification = async (notificationId, userId) => {
   return mapNotification(result.rows[0]);
 };
 
-// --- UPDATED: Universal Create Notification ---
+
 export const createNotification = async ({
-  userId, // For direct user notification (e.g., Admins)
-  studentId, // For looking up a student's user account
+  userId, 
+  studentId, 
   title,
   message,
   category,
 }) => {
   let targetUserId = userId;
 
-  // Resolve studentId to userId if userId wasn't directly provided
+  
   if (!targetUserId && studentId) {
     const userResult = await pool.query(
       `SELECT id FROM users WHERE studentid = $1 AND isactive = true`,
@@ -170,7 +170,7 @@ export const createNotification = async ({
       console.warn(
         `Failed to generate notification: Student user account not found for studentId ${studentId}`,
       );
-      return null; // Return null safely instead of crashing the main process
+      return null; 
     }
   }
 
@@ -193,15 +193,15 @@ export const createNotification = async ({
   return mapNotification(result.rows[0]);
 };
 
-// --- NEW: Helper to notify all admins simultaneously ---
+
 export const notifyAdmins = async ({ title, message, category }) => {
   try {
-    // Find all active admins
+    
     const admins = await pool.query(
       `SELECT id FROM users WHERE role = 'admin' AND isactive = true`,
     );
 
-    // Create a notification for each admin concurrently
+    
     const promises = admins.rows.map((admin) =>
       createNotification({
         userId: admin.id,

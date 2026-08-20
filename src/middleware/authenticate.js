@@ -15,7 +15,6 @@ const authenticate = async (req, res, next) => {
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // 1. FIRST CHECK: Try finding the user in the 'users' (Admins/Staff) table
     let result = await pool.query(
       `SELECT id, email, role, studentid, isactive FROM users WHERE id = $1`,
       [decoded.id],
@@ -38,14 +37,13 @@ const authenticate = async (req, res, next) => {
       user = {
         ...studentResult.rows[0],
         role: "student",
-        // ADD THIS LINE: Tell the controllers that this user's student ID is their own ID
+
         studentid: studentResult.rows[0].id,
       };
     } else {
       user = result.rows[0];
     }
 
-    // 3. Check if the account is active (applies to both admins and students)
     if (!user.isactive) {
       return res.status(401).json({
         success: false,

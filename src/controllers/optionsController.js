@@ -1,5 +1,5 @@
 import pool from "../config/database.js";
-import { response } from "../utils/response.js"; // Adjust this path if your response formatter is elsewhere
+import { response } from "../utils/response.js";
 
 export const getDepartments = async (req, res, next) => {
   try {

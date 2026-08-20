@@ -24,7 +24,6 @@ export const registerAdmin = asyncHandler(async (req, res) => {
 });
 
 export const getProfile = asyncHandler(async (req, res) => {
-  // Extract the admin ID from the JWT token middleware
   const adminId = req.user.id;
 
   const result = await pool.query(

@@ -9,7 +9,7 @@ import restoreEntity from "../utils/restoreEntity.js";
 export const createSession = async (data) => {
   const { name } = data;
 
-  // Provide safe fallback dates if the frontend didn't send them
+  
   const startdate = data.startdate || new Date().toISOString().split("T")[0];
   const enddate =
     data.enddate ||
@@ -28,7 +28,7 @@ export const createSession = async (data) => {
   try {
     await client.query("BEGIN");
 
-    // 1. Create the new Session
+    
     const sessionResult = await client.query(
       `
       INSERT INTO sessions (name, startdate, enddate, iscurrent)
@@ -40,7 +40,7 @@ export const createSession = async (data) => {
 
     const newSession = sessionResult.rows[0];
 
-    // 2. Auto-generate the Semesters for this Session WITH the required dates!
+    
     await client.query(
       `
       INSERT INTO semesters (name, sessionid, startdate, enddate, iscurrent) 
@@ -132,7 +132,7 @@ export const getSessionById = async (id) => {
   return mapSession(result.rows[0]);
 };
 
-// --- RESTORED BACKEND SQL FOR EDITING ---
+
 export const updateSession = async (id, data) => {
   const session = await getSessionById(id);
   const updated = { ...session, ...data };
@@ -157,7 +157,7 @@ export const updateSession = async (id, data) => {
   return mapSession(result.rows[0]);
 };
 
-// --- FIXED "GHOSTING" BUG ---
+
 export const setCurrentSession = async (id) => {
   const session = await getSessionById(id);
 
@@ -170,13 +170,13 @@ export const setCurrentSession = async (id) => {
   try {
     await client.query("BEGIN");
 
-    // 1. Wipe the current status from ALL sessions
+    
     await client.query(`UPDATE sessions SET iscurrent = false`);
 
-    // 2. Wipe the current status from ALL semesters globally (This kills the ghost!)
+    
     await client.query(`UPDATE semesters SET iscurrent = false`);
 
-    // 3. Set the new active session
+    
     const result = await client.query(
       `
       UPDATE sessions
@@ -213,13 +213,13 @@ export const runSessionPromotion = async (sessionId) => {
   try {
     await client.query("BEGIN");
 
-    // 1. Get all active students
+    
     const studentsResult = await client.query(
       `SELECT id, departmentid, levelid FROM students WHERE isactive = true`,
     );
     const students = studentsResult.rows;
 
-    // 2. Get all promotion rules mapping
+    
     const rulesResult = await client.query(
       `SELECT departmentid, current_levelid, next_levelid, min_cgpa, min_earned_units FROM promotion_rules`,
     );
@@ -228,19 +228,19 @@ export const runSessionPromotion = async (sessionId) => {
     let promotedCount = 0;
     let retainedCount = 0;
 
-    // 3. Evaluate each student
+    
     for (const student of students) {
-      // Find the specific rule for this student's department and current level
+      
       const rule = rules.find(
         (r) =>
           r.departmentid === student.departmentid &&
           r.current_levelid === student.levelid,
       );
 
-      // If no rule exists, skip them
+      
       if (!rule) continue;
 
-      // Check if this student was already promoted for this session to prevent infinite promotion
+      
       const alreadyPromotedResult = await client.query(
         `SELECT id FROM promotion_history WHERE studentid = $1 AND sessionid = $2`,
         [student.id, sessionId],
@@ -250,7 +250,7 @@ export const runSessionPromotion = async (sessionId) => {
         continue;
       }
 
-      // Fetch student's academic standing
+      
       const performanceResult = await client.query(
         `
         SELECT 
@@ -282,18 +282,18 @@ export const runSessionPromotion = async (sessionId) => {
       const totalGradePoints = Number(performance.total_grade_points);
       const cgpa = registeredUnits > 0 ? totalGradePoints / registeredUnits : 0;
 
-      // 4. Evaluate against the department's rule
+      
       if (
         cgpa >= Number(rule.min_cgpa) &&
         earnedUnits >= Number(rule.min_earned_units)
       ) {
-        // PASS: Update student level
+        
         await client.query(
           `UPDATE students SET levelid = $1, updatedat = CURRENT_TIMESTAMP WHERE id = $2`,
           [rule.next_levelid, student.id],
         );
 
-        // PASS: Record in history
+        
         await client.query(
           `INSERT INTO promotion_history (studentid, sessionid, oldlevelid, newlevelid) VALUES ($1, $2, $3, $4)`,
           [student.id, sessionId, student.levelid, rule.next_levelid],
@@ -301,7 +301,7 @@ export const runSessionPromotion = async (sessionId) => {
 
         promotedCount++;
       } else {
-        // FAIL: Retain student
+        
         retainedCount++;
       }
     }

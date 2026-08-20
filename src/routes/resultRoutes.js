@@ -19,10 +19,8 @@ const router = express.Router();
 
 router.use(authenticate);
 
-// Student routes
 router.get("/my-results", authorize("student"), resultController.getMyResults);
 
-// Admin routes
 router.use(authorize("admin"));
 
 router.post(
@@ -32,7 +30,6 @@ router.post(
   resultController.createResult,
 );
 
-// Excel upload validation
 router.post(
   "/upload/validate",
   uploadResultFile.single("file"),
@@ -49,7 +46,6 @@ router.post(
   resultController.uploadResults,
 );
 
-// Results
 router.patch("/bulk-approve", resultController.bulkApproveResults);
 router.delete("/bulk-delete", resultController.bulkDeleteResults);
 router.patch("/bulk-deactivate", resultController.bulkDeactivateResults);

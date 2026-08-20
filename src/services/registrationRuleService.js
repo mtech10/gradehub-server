@@ -8,7 +8,7 @@ export const saveRegistrationRule = async (data) => {
     throw apiError(400, "Department and Level are required to set a rule.");
   }
 
-  // The ON CONFLICT clause makes this an "Upsert"
+  
   const query = `
     INSERT INTO registration_rules (departmentid, levelid, min_units, max_units)
     VALUES ($1, $2, $3, $4)
@@ -23,8 +23,8 @@ export const saveRegistrationRule = async (data) => {
   const result = await pool.query(query, [
     departmentid,
     levelid,
-    min_units || 12, // Default fallback
-    max_units || 48, // Default fallback
+    min_units || 12, 
+    max_units || 48, 
   ]);
 
   return result.rows[0];
@@ -42,7 +42,7 @@ export const getRegistrationRules = async () => {
   return result.rows;
 };
 
-// We will use this in the next step to validate a student's cart!
+
 export const getRuleForStudent = async (departmentid, levelid) => {
   const query = `
     SELECT min_units, max_units 
@@ -51,7 +51,7 @@ export const getRuleForStudent = async (departmentid, levelid) => {
   `;
   const result = await pool.query(query, [departmentid, levelid]);
 
-  // Return the specific rule, or fallback to the system default if no rule exists yet
+  
   return result.rows[0] || { min_units: 12, max_units: 48 };
 };
 

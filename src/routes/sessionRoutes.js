@@ -18,19 +18,16 @@ import {
   makeCurrent,
   deactivate,
   restore,
-  promote, // <-- 1. Imported the promote controller
+  promote,
 } from "../controllers/sessionController.js";
 
 const router = express.Router();
 
-// 1. Everyone must be logged in
 router.use(authenticate);
 
-// 2. ANY authenticated user (Students, Lecturers, Admins) can GET the lists
 router.get("/", getAll);
 router.get("/:id", validateUUID(), getOne);
 
-// 3. ONLY Admins can modify data (Inject authorize("admin") specifically on these routes)
 router.post(
   "/",
   authorize("admin"),
@@ -50,7 +47,6 @@ router.patch("/:id/current", authorize("admin"), validateUUID(), makeCurrent);
 router.patch("/:id/deactivate", authorize("admin"), validateUUID(), deactivate);
 router.patch("/:id/restore", authorize("admin"), validateUUID(), restore);
 
-// --- 2. NEW PROMOTION ROUTE ---
 router.post("/:id/promote", authorize("admin"), validateUUID(), promote);
 
 export default router;

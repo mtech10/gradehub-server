@@ -3,7 +3,6 @@ import multer from "multer";
 const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
-  // Common MIME types for CSV files
   const allowedMimeTypes = [
     "text/csv",
     "application/csv",
@@ -11,7 +10,7 @@ const fileFilter = (req, file, cb) => {
     "application/x-csv",
     "text/comma-separated-values",
     "text/x-comma-separated-values",
-    "application/vnd.ms-excel", // Sometimes Windows forces CSVs to use this MIME type
+    "application/vnd.ms-excel",
   ];
 
   if (allowedMimeTypes.includes(file.mimetype)) {
