@@ -1,4 +1,5 @@
 import { body } from "express-validator";
+import { parseResultCSV } from "../utils/parseResultCSV.js";
 
 export const createResultValidator = [
   body("studentId")
@@ -59,7 +60,7 @@ export const updateResultValidator = [
 ];
 
 export const validateResultUpload = async ({ fileBuffer, metadata }) => {
-  const rows = parseResultExcel(fileBuffer);
+  const rows = parseResultCSV(fileBuffer);
 
   const academic = await findAcademicDetails(metadata);
 

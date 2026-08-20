@@ -1,6 +1,6 @@
 import pool from "../config/database.js";
 import apiError from "../utils/apiError.js";
-import { parseResultExcel } from "../utils/parseResultExcel.js";
+import { parseResultCSV } from "../utils/parseResultCSV.js";
 import calculateGrade from "../utils/calculateGrade.js";
 
 const findAcademicDetails = async ({
@@ -90,17 +90,16 @@ const findAcademicDetails = async ({
     WHERE id = $1
       AND departmentid = $2
       AND levelid = $3
-      AND semesterid = $4
       AND isactive = true
     LIMIT 1
     `,
-    [courseId, departmentRow.id, levelRow.id, semesterRow.id],
+    [courseId, departmentRow.id, levelRow.id], // Removed semesterRow.id
   );
 
   if (!courseResult.rows.length) {
     throw apiError(
       404,
-      "Course does not match the selected department, level and semester",
+      "Course does not match the selected department and level", // Updated error message
     );
   }
 
@@ -144,7 +143,7 @@ export const validateResultUpload = async ({ fileBuffer, metadata }) => {
   });
 
   // 2. Parse the Excel file
-  const rows = parseResultExcel(fileBuffer);
+  const rows = parseResultCSV(fileBuffer);
 
   const validRows = [];
   const invalidRows = [];

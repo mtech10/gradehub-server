@@ -3,17 +3,22 @@ import multer from "multer";
 const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
-  const allowedExtensions = [".xlsx", ".xls"];
+  // Common MIME types for CSV files
+  const allowedMimeTypes = [
+    "text/csv",
+    "application/csv",
+    "text/x-csv",
+    "application/x-csv",
+    "text/comma-separated-values",
+    "text/x-comma-separated-values",
+    "application/vnd.ms-excel", // Sometimes Windows forces CSVs to use this MIME type
+  ];
 
-  const extension = file.originalname
-    .substring(file.originalname.lastIndexOf("."))
-    .toLowerCase();
-
-  if (!allowedExtensions.includes(extension)) {
-    return cb(new Error("Only .xlsx and .xls files are allowed"));
+  if (allowedMimeTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Only .csv files are allowed"), false);
   }
-
-  cb(null, true);
 };
 
 const uploadResultFile = multer({
